@@ -1,0 +1,386 @@
+use axum::{
+    extract::State,
+    http::StatusCode,
+    response::IntoResponse,
+    routing::{delete, get, post, put},
+    Json, Router,
+};
+use sqlx::mysql::MySqlPoolOptions;
+use sqlx::MySqlPool;
+use std::sync::Arc;
+use tokio::signal;
+use tower_http::{
+    cors::{Any, CorsLayer},
+    limit::RequestBodyLimitLayer,
+    trace::TraceLayer,
+};
+use tracing_subscriber;
+
+mod db_pool;
+mod llm;
+mod models;
+mod routes;
+mod snapshot_scheduler;
+mod column_profiler;
+pub mod ai_log;
+
+use db_pool::PoolCache;
+
+#[derive(Clone)]
+pub struct AppState {
+    pub db: MySqlPool,
+    pub pool_cache: PoolCache,
+}
+
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt()
+        .with_target(false)
+        .init();
+
+    dotenvy::dotenv().ok();
+
+    // Security: require a JWT signing secret. Refuse to start without one so we
+    // never fall back to a guessable default that would let anyone forge tokens.
+    match std::env::var("JWT_SECRET") {
+        Ok(s) if s.len() >= 16 => {}
+        Ok(_) => panic!("JWT_SECRET must be at least 16 characters. Set a strong random value."),
+        Err(_) => panic!("JWT_SECRET is not set. Set a strong random value (>= 16 chars) before starting."),
+    }
+
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "mysql://root:password@localhost:3306/ai_report".to_string());
+
+    let pool = MySqlPoolOptions::new()
+        .max_connections(10)
+        .connect(&database_url)
+        .await
+        .expect("Failed to connect to metadata database");
+
+    // Run migrations — each statement separated by semicolons, with statement
+    // delimiter support. Handles semicolons inside string values correctly.
+    run_migrations(&pool, include_str!("../migrations/001_init.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/002_groups_and_metrics.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/003_report_canvas.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/004_report_html.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/005_refresh_interval.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/006_knowledge_base.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/007_generation_status.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/008_published_html.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/009_users.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/010_ai_logs.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/011_ai_examples.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/012_ai_logs_params.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/013_report_style.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/014_report_score_and_achievements.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/015_report_versions.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/016_metric_snapshots.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/017_column_profiling.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/018_table_descriptions.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/019_column_descriptions.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/020_conversation_generation_status.sql")).await;
+
+    let state = Arc::new(AppState {
+        db: pool,
+        pool_cache: PoolCache::new(),
+    });
+
+    let allowed_origin = std::env::var("CORS_ALLOWED_ORIGIN")
+        .unwrap_or_else(|_| "*".to_string());
+
+    let cors = if allowed_origin == "*" {
+        CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any)
+    } else {
+        CorsLayer::new()
+            .allow_origin(
+                allowed_origin
+                    .parse::<axum::http::HeaderValue>()
+                    .expect("Invalid CORS_ALLOWED_ORIGIN"),
+            )
+            .allow_methods(Any)
+            .allow_headers(Any)
+    };
+
+    let protected = Router::new()
+        .route("/api/datasources", post(routes::datasources::create))
+        .route("/api/datasources", get(routes::datasources::list))
+        .route("/api/datasources/{id}", get(routes::datasources::get_one))
+        .route("/api/datasources/{id}", put(routes::datasources::update))
+        .route("/api/datasources/{id}", delete(routes::datasources::remove))
+        .route("/api/datasources/{id}/test", post(routes::datasources::test_connection))
+        .route("/api/datasources/{id}/introspect", post(routes::datasources::introspect))
+        .route("/api/datasources/{id}/schema", get(routes::datasources::get_schema))
+        .route("/api/datasources/{id}/profile", post(routes::datasources::profile))
+        .route("/api/datasources/{id}/table-descriptions", get(routes::table_descriptions::list))
+        .route("/api/datasources/{id}/table-descriptions", post(routes::table_descriptions::upsert))
+        .route("/api/datasources/{id}/column-descriptions", get(routes::table_descriptions::list_columns))
+        .route("/api/datasources/{id}/column-descriptions", post(routes::table_descriptions::upsert_column))
+        .route("/api/knowledge-graph/{ds_id}", get(routes::knowledge_graph::get_graph))
+        .route("/api/knowledge-graph/{ds_id}/refresh", post(routes::knowledge_graph::refresh_graph))
+        .route("/api/conversations", get(routes::conversations::list))
+        .route("/api/conversations", post(routes::conversations::create))
+        .route("/api/conversations/{id}", get(routes::conversations::get_messages))
+        .route("/api/conversations/{id}/status", get(routes::conversations::get_status))
+        .route("/api/conversations/{id}", delete(routes::conversations::delete))
+        .route("/api/query/execute", post(routes::query::execute))
+        .route("/api/query/{pool_id}", get(routes::query::get_pool))
+        .route("/api/reports", get(routes::reports::list))
+        .route("/api/reports", post(routes::reports::create))
+        .route("/api/reports/{id}", get(routes::reports::get_one))
+        .route("/api/reports/{id}/render", post(routes::reports::render))
+        .route("/api/reports/{id}/status", get(routes::reports::get_status))
+        .route("/api/reports/{id}", delete(routes::reports::delete))
+        .route("/api/reports/{id}/move", put(routes::report_groups::move_report))
+        .route("/api/reports/{id}/publish", put(routes::reports::publish))
+        .route("/api/reports/{id}/rollback", post(routes::reports::rollback))
+        .route("/api/reports/{id}/share", post(routes::reports::share))
+        .route("/api/reports/{id}/datasources", get(routes::report_datasources::list))
+        .route("/api/reports/{id}/datasources", post(routes::report_datasources::create))
+        .route("/api/reports/{id}/datasources/{ds_id}", delete(routes::report_datasources::remove))
+        .route("/api/reports/{id}/datasources/{ds_id}/refresh", post(routes::report_datasources::refresh))
+        .route("/api/reports/{id}/refresh-interval", put(routes::reports::update_refresh_interval))
+        .route("/api/reports/{id}/style", put(routes::reports::update_style))
+        .route("/api/reports/{id}/versions", get(routes::reports::list_versions))
+        .route("/api/reports/{id}/versions/{vid}/restore", post(routes::reports::restore_version))
+        .route("/api/reports/{id}/versions/{vid}", delete(routes::reports::delete_version))
+        .route("/api/report-groups", get(routes::report_groups::list))
+        .route("/api/report-groups", post(routes::report_groups::create))
+        .route("/api/report-groups/{id}", put(routes::report_groups::update))
+        .route("/api/report-groups/{id}", delete(routes::report_groups::remove))
+        .route("/api/metric-groups", get(routes::metric_groups::list))
+        .route("/api/metric-groups", post(routes::metric_groups::create))
+        .route("/api/metric-groups/{id}", put(routes::metric_groups::update))
+        .route("/api/metric-groups/{id}", delete(routes::metric_groups::remove))
+        .route("/api/metrics", get(routes::metric_pools::list))
+        .route("/api/metrics", post(routes::metric_pools::create))
+        .route("/api/metrics/{id}", get(routes::metric_pools::get_one))
+        .route("/api/metrics/{id}", put(routes::metric_pools::update))
+        .route("/api/metrics/{id}", delete(routes::metric_pools::remove))
+        .route("/api/metrics/{id}/refresh", post(routes::metric_pools::refresh))
+        .route("/api/metrics/{id}/move", put(routes::metric_pools::move_metric))
+        // Snapshot schedules & data
+        .route("/api/snapshot-schedules", get(routes::snapshots::list_schedules))
+        .route("/api/snapshot-schedules", post(routes::snapshots::create_schedule))
+        .route("/api/snapshot-schedules/{id}", put(routes::snapshots::update_schedule))
+        .route("/api/snapshot-schedules/{id}", delete(routes::snapshots::delete_schedule))
+        .route("/api/metrics/{id}/schedule", get(routes::snapshots::get_schedule))
+        .route("/api/metrics/{id}/snapshots", get(routes::snapshots::list_snapshots))
+        .route("/api/metrics/{id}/snapshots", post(routes::snapshots::take_snapshot))
+        .route("/api/metrics/{id}/snapshots/{snapshot_id}", delete(routes::snapshots::delete_snapshot))
+        .route("/api/metrics/{id}/snapshots/compare", get(routes::snapshots::compare_snapshots))
+        .route("/api/llm/config", get(routes::llm_config::get_config))
+        .route("/api/llm/config", put(routes::llm_config::update_config))
+        .route("/api/llm/config/test", post(routes::llm_config::test_connection))
+        // Knowledge Base
+        .route("/api/knowledge-base", get(routes::knowledge_base::list))
+        .route("/api/knowledge-base", post(routes::knowledge_base::create))
+        .route("/api/knowledge-base/{id}", put(routes::knowledge_base::update))
+        .route("/api/knowledge-base/{id}", delete(routes::knowledge_base::delete))
+        .route("/api/knowledge-base/datasource/{ds_id}", get(routes::knowledge_base::list_by_datasource))
+        // AI Logs
+        .route("/api/ai-logs", get(routes::ai_logs::list))
+        .route("/api/ai-logs/{id}", get(routes::ai_logs::get_one))
+        // AI Examples
+        .route("/api/ai-examples", get(routes::ai_examples::list))
+        .route("/api/ai-examples", post(routes::ai_examples::create))
+        .route("/api/ai-examples/{id}", delete(routes::ai_examples::delete))
+        .route("/api/ai-examples/datasource/{ds_id}", get(routes::ai_examples::list_by_datasource))
+        // Achievements
+        .route("/api/achievements", get(routes::achievements::list))
+        // All routes above require a valid JWT.
+        .route_layer(axum::middleware::from_fn(routes::auth::require_auth));
+
+    // Routes loaded directly by the browser inside iframes / embedded fetches.
+    // Auth accepted via Authorization header OR a ?token= query param.
+    let flexible = Router::new()
+        .route("/api/reports/{id}/html", get(routes::reports::get_html))
+        .route("/api/reports/{id}/data", get(routes::reports::get_live_data))
+        .route("/api/reports/{id}/versions/{vid}/html", get(routes::reports::get_version_html))
+        .route_layer(axum::middleware::from_fn(routes::auth::require_auth_flexible));
+
+    // Public routes — no auth required.
+    // - health check
+    // - auth endpoints (login/register/check; `me` validates its own token)
+    // - public share links (guarded by an unguessable UUID token)
+    // - chat WebSocket (validates token from the query string inside the handler,
+    //   since browsers cannot set Authorization headers on WS connections)
+    let public = Router::new()
+        .route("/api/health", get(health_check))
+        .route("/api/chat", get(routes::chat::ws_handler))
+        .route("/api/share/{token}", get(routes::reports::view_shared))
+        .route("/api/share/{token}/html", get(routes::reports::view_shared_html))
+        .route("/api/auth/login", post(routes::auth::login))
+        .route("/api/auth/register", post(routes::auth::register))
+        .route("/api/auth/me", get(routes::auth::me))
+        .route("/api/auth/check", get(routes::auth::check_setup));
+
+    let app = public
+        .merge(protected)
+        .merge(flexible)
+        .layer(TraceLayer::new_for_http())
+        .layer(RequestBodyLimitLayer::new(10 * 1024 * 1024)) // 10 MB max body
+        .layer(cors)
+        .with_state(state.clone());
+
+    // Start background snapshot scheduler
+    snapshot_scheduler::spawn(state);
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3001")
+        .await
+        .unwrap();
+    tracing::info!("Server listening on http://0.0.0.0:3001");
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    tracing::info!("Shutdown signal received, draining connections...");
+}
+
+async fn health_check(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    // Quick connectivity check on metadata DB
+    let db_ok = sqlx::query("SELECT 1")
+        .execute(&state.db)
+        .await
+        .is_ok();
+
+    let status = if db_ok {
+        (StatusCode::OK, Json(serde_json::json!({"status": "healthy", "db": "connected"})))
+    } else {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"status": "unhealthy", "db": "disconnected"})),
+        )
+    };
+
+    status
+}
+
+/// Run SQL migrations, splitting on semicolons while respecting
+/// single-quoted strings (basic protection against false splits).
+async fn run_migrations(pool: &MySqlPool, migration_sql: &str) {
+    for statement in split_sql_statements(migration_sql) {
+        let trimmed = statement.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        match sqlx::query(trimmed).execute(pool).await {
+            Ok(_) => {}
+            Err(e) => {
+                // Table-already-exists (1050), duplicate-entry (1062),
+                // duplicate-column (1060), duplicate-key (1061) are expected on re-runs.
+                if let Some(db_err) = e.as_database_error() {
+                    let code = db_err.code().unwrap_or_default();
+                    if code == "42S01" || code == "1050" || code == "1060" || code == "1061"
+                        || code == "1062" || code == "23000"
+                    {
+                        continue;
+                    }
+                }
+                tracing::warn!(
+                    "Migration statement warning [{}]: {}",
+                    &trimmed[..trimmed.len().min(80)],
+                    e
+                );
+            }
+        }
+    }
+    tracing::info!("Migrations complete");
+}
+
+/// Split SQL on `;` delimiters while respecting single-quoted strings.
+fn split_sql_statements(sql: &str) -> Vec<String> {
+    let chars: Vec<char> = sql.chars().collect();
+    let len = chars.len();
+    let mut statements = Vec::new();
+    let mut start = 0;
+    let mut i = 0;
+
+    while i < len {
+        let c = chars[i];
+
+        // Skip block comments
+        if c == '/' && i + 1 < len && chars[i + 1] == '*' {
+            i += 2;
+            while i + 1 < len && !(chars[i] == '*' && chars[i + 1] == '/') {
+                i += 1;
+            }
+            i += 2;
+            continue;
+        }
+
+        // Skip line comments
+        if c == '-' && i + 1 < len && chars[i + 1] == '-' {
+            i += 2;
+            while i < len && chars[i] != '\n' {
+                i += 1;
+            }
+            continue;
+        }
+
+        // Skip single-quoted strings
+        if c == '\'' {
+            i += 1;
+            while i < len {
+                if chars[i] == '\\' && i + 1 < len {
+                    i += 2;
+                } else if chars[i] == '\'' {
+                    // MySQL '' escape: two consecutive single quotes inside a string
+                    if i + 1 < len && chars[i + 1] == '\'' {
+                        i += 2;
+                    } else {
+                        i += 1;
+                        break;
+                    }
+                } else {
+                    i += 1;
+                }
+            }
+            continue;
+        }
+
+        if c == ';' {
+            statements.push(chars[start..i].iter().collect());
+            start = i + 1;
+        }
+        i += 1;
+    }
+
+    // Remaining text after last semicolon
+    if start < len {
+        let remaining: String = chars[start..].iter().collect();
+        if !remaining.trim().is_empty() {
+            statements.push(remaining);
+        }
+    }
+
+    statements
+}

@@ -1,0 +1,28 @@
+import { Outlet, useLocation } from 'react-router-dom';
+import NavSidebar from './NavSidebar';
+import AssetPanel from './AssetPanel';
+import AIPanel from './AIPanel';
+
+export default function Layout() {
+  const location = useLocation();
+  const isConversationsPage = location.pathname.startsWith('/conversations');
+  const isReportDetail = /^\/reports\/\d+/.test(location.pathname);
+  const isReportsPage = location.pathname.startsWith('/reports');
+  const isLogsPage = location.pathname.startsWith('/logs');
+  const isSettingsPage = location.pathname.startsWith('/settings');
+  const isSnapshotsPage = location.pathname.startsWith('/snapshots');
+  const hideAssetPanel = isConversationsPage || isReportDetail || isLogsPage || isSettingsPage || isSnapshotsPage;
+  // Hide the AI assistant on conversation, report detail, report list, logs, settings, and snapshots pages
+  const hideAIPanel = isConversationsPage || isReportDetail || isReportsPage || isLogsPage || isSettingsPage || isSnapshotsPage;
+
+  return (
+    <div className="flex h-dvh w-full overflow-hidden grain-overlay">
+      <NavSidebar />
+      {!hideAssetPanel && <AssetPanel />}
+      <main className="flex-1 overflow-y-auto scrollbar-thin bg-obsidian-950">
+        <Outlet />
+      </main>
+      {!hideAIPanel && <AIPanel />}
+    </div>
+  );
+}

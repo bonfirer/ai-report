@@ -1,0 +1,278 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --obsidian-950: 8 8 12;
+    --obsidian-900: 13 13 20;
+    --obsidian-800: 18 18 26;
+    --obsidian-700: 31 31 40;
+    --scrollbar-thumb: #1f1f28;
+    --scrollbar-hover: #30363d;
+    --range-bg: #1f1f28;
+    --range-border: #08080c;
+  }
+
+  :root.light {
+    --obsidian-950: 255 255 255;
+    --obsidian-900: 248 249 250;
+    --obsidian-800: 241 243 245;
+    --obsidian-700: 222 226 230;
+    --scrollbar-thumb: #dee2e6;
+    --scrollbar-hover: #ced4da;
+    --range-bg: #dee2e6;
+    --range-border: #ffffff;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Geist Sans', 'Geist', 'Satoshi', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    background: rgb(var(--obsidian-950));
+    color: #e5e7eb;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+
+  .light body {
+    color: #1a1a2e;
+  }
+
+  #root {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Light theme text color overrides - moved outside @layer for higher priority */
+  .light .border-obsidian-700 { border-color: rgb(var(--obsidian-700)); }
+}
+
+@layer components {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 2px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-hover);
+  }
+
+  /* Range slider styling */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--range-bg);
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #d4a853;
+    cursor: pointer;
+    border: 2px solid var(--range-border);
+    transition: transform 0.15s ease;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #d4a853;
+    cursor: pointer;
+    border: 2px solid var(--range-border);
+  }
+}
+
+@layer utilities {
+  .transition-premium {
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Staggered entrance cascade */
+  .stagger-item {
+    opacity: 0;
+    transform: translateY(8px);
+    animation: staggerFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes staggerFadeIn {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Perpetual shimmer for skeleton cards */
+  @keyframes shimmerMove {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .shimmer-surface {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(212, 168, 83, 0.04) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmerMove 3s ease-in-out infinite;
+  }
+
+  /* Breathing dot animation for live indicators */
+  @keyframes breatheDot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
+
+  .dot-breathe {
+    animation: breatheDot 2s ease-in-out infinite;
+  }
+
+  /* Subtle float for decorative elements */
+  @keyframes subtleFloat {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-4px); }
+  }
+
+  .float-subtle {
+    animation: subtleFloat 6s ease-in-out infinite;
+  }
+
+  /* Login page floating orbs */
+  @keyframes floatSlow {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25% { transform: translate(20px, -30px) scale(1.05); }
+    50% { transform: translate(-10px, 20px) scale(0.95); }
+    75% { transform: translate(15px, 10px) scale(1.02); }
+  }
+
+  @keyframes floatSlower {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(-30px, 20px) scale(1.03); }
+    66% { transform: translate(20px, -15px) scale(0.97); }
+  }
+
+  @keyframes floatMedium {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(25px, -20px); }
+  }
+
+  .animate-float-slow {
+    animation: floatSlow 20s ease-in-out infinite;
+  }
+
+  .animate-float-slower {
+    animation: floatSlower 28s ease-in-out infinite;
+  }
+
+  .animate-float-medium {
+    animation: floatMedium 14s ease-in-out infinite;
+  }
+
+  /* Shooting stars */
+  @keyframes shootingStar {
+    0% {
+      opacity: 0;
+      transform: rotate(inherit) translateY(-100px);
+    }
+    5% {
+      opacity: 1;
+    }
+    15% {
+      opacity: 0;
+      transform: rotate(inherit) translateY(600px);
+    }
+    100% {
+      opacity: 0;
+      transform: rotate(inherit) translateY(600px);
+    }
+  }
+
+  .shooting-star {
+    background: linear-gradient(to bottom, rgba(245, 158, 11, 0), rgba(245, 158, 11, 0.6), rgba(245, 158, 11, 0));
+    animation: shootingStar 6s ease-in-out infinite;
+    border-radius: 999px;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.3);
+  }
+}
+
+/* ── Noise Grain Overlay (GPU-safe, pointer-events-none) ── */
+@layer base {
+  .grain-overlay::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 200px;
+  }
+
+  .light .grain-overlay::after {
+    opacity: 0;
+  }
+}
+
+/* ── Light Theme Overrides (outside @layer for highest priority) ── */
+html.light .text-gray-100 { color: #111827 !important; }
+html.light .text-gray-200 { color: #1f2937 !important; }
+html.light .text-gray-300 { color: #374151 !important; }
+html.light .text-gray-400 { color: #4b5563 !important; }
+html.light .text-gray-500 { color: #6b7280 !important; }
+html.light .text-gray-600 { color: #9ca3af !important; }
+html.light .text-gray-700 { color: #d1d5db !important; }
+html.light .placeholder-gray-600::placeholder { color: #6b7280 !important; }
+html.light .text-white { color: #111827 !important; }
+
+/* Light theme: amber button text stays dark */
+html.light .bg-amber-500 .text-\[\#08080c\],
+html.light .text-\[\#08080c\] { color: #08080c !important; }
+
+/* Light theme: ensure borders are visible */
+html.light .border-obsidian-700 { border-color: #dee2e6 !important; }
+html.light .border-obsidian-700\/50 { border-color: rgba(222, 226, 230, 0.5) !important; }
+
+/* Light theme: hover states */
+html.light .hover\:bg-obsidian-800:hover { background-color: #e9ecef !important; }
+html.light .hover\:text-gray-200:hover { color: #111827 !important; }
+html.light .hover\:text-gray-300:hover { color: #1f2937 !important; }
+
+/* Light theme: focus states */
+html.light .focus\:border-amber-500\/50:focus { border-color: rgba(212, 168, 83, 0.5) !important; }

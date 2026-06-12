@@ -1,0 +1,509 @@
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct DataSource {
+    pub id: i32,
+    pub name: String,
+    pub db_type: String,
+    pub host: String,
+    pub port: i32,
+    pub database_name: String,
+    pub username: String,
+    #[serde(skip_serializing)]
+    pub password: String,
+    pub status: String,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateDataSource {
+    pub name: String,
+    pub db_type: Option<String>,
+    pub host: String,
+    pub port: Option<i32>,
+    pub database_name: String,
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateDataSource {
+    pub name: Option<String>,
+    pub host: Option<String>,
+    pub port: Option<i32>,
+    pub database_name: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SchemaInfo {
+    pub tables: Vec<TableInfo>,
+    pub relationships: Vec<Relationship>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TableInfo {
+    pub name: String,
+    pub comment: Option<String>,
+    pub columns: Vec<ColumnInfo>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ColumnInfo {
+    pub name: String,
+    pub data_type: String,
+    pub nullable: bool,
+    pub is_primary_key: bool,
+    pub is_foreign_key: bool,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Relationship {
+    pub source_table: String,
+    pub source_column: String,
+    pub target_table: String,
+    pub target_column: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct KnowledgeGraph {
+    pub nodes: Vec<GraphNode>,
+    pub edges: Vec<GraphEdge>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GraphNode {
+    pub id: String,
+    pub label: String,
+    pub columns: Vec<ColumnInfo>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GraphEdge {
+    pub source: String,
+    pub target: String,
+    pub r#type: String,
+    pub on: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct Conversation {
+    pub id: i32,
+    pub title: Option<String>,
+    pub generation_status: Option<String>,
+    pub generation_error: Option<String>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct Message {
+    pub id: i32,
+    pub conversation_id: i32,
+    pub role: String,
+    pub content: String,
+    pub metadata: Option<serde_json::Value>,
+    pub reasoning_content: Option<String>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct DataPool {
+    pub id: i32,
+    pub conversation_id: Option<i32>,
+    pub name: Option<String>,
+    pub sql_query: String,
+    pub datasource_id: i32,
+    pub result_cache: Option<serde_json::Value>,
+    pub row_count: Option<i32>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct Report {
+    pub id: i32,
+    pub title: String,
+    pub description: Option<String>,
+    pub group_id: Option<i32>,
+    pub pool_ids: serde_json::Value,
+    pub config: serde_json::Value,
+    pub data_cache: Option<serde_json::Value>,
+    pub status: Option<String>,
+    pub share_token: Option<String>,
+    pub share_public: Option<bool>,
+    pub layout_config: Option<serde_json::Value>,
+    pub html_content: Option<String>,
+    pub published_html: Option<String>,
+    pub refresh_interval: Option<i32>,
+    pub generation_status: Option<String>,
+    pub generation_error: Option<String>,
+    pub style_key: Option<String>,
+    pub design_score: Option<serde_json::Value>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateReport {
+    pub title: String,
+    pub description: Option<String>,
+    pub pool_ids: Vec<i32>,
+    pub group_id: Option<i32>,
+    pub visualization_intent: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct LLMConfig {
+    pub id: i32,
+    pub provider: String,
+    pub base_url: String,
+    pub api_key: String,
+    pub model: String,
+    pub max_tokens: i32,
+    pub temperature: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateLLMConfig {
+    pub provider: Option<String>,
+    pub base_url: Option<String>,
+    pub api_key: Option<String>,
+    pub model: Option<String>,
+    pub max_tokens: Option<i32>,
+    pub temperature: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct QueryRequest {
+    pub sql: String,
+    pub datasource_id: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct QueryResult {
+    pub columns: Vec<String>,
+    pub rows: Vec<serde_json::Value>,
+    pub row_count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ReportRenderConfig {
+    pub visualizations: Vec<VisConfig>,
+    pub layout: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct VisConfig {
+    pub r#type: String,
+    pub title: String,
+    pub data_pool_id: i32,
+    pub config: serde_json::Value,
+}
+
+/// Flexible render request — either manual config or AI prompt.
+#[derive(Debug, Deserialize)]
+pub struct RenderRequest {
+    pub prompt: Option<String>,
+    pub config: Option<ReportRenderConfig>,
+}
+
+// ── Report Groups ──
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct ReportGroup {
+    pub id: i32,
+    pub name: String,
+    pub description: Option<String>,
+    pub sort_order: i32,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateReportGroup {
+    pub name: String,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateReportGroup {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub sort_order: Option<i32>,
+}
+
+// ── Metric Groups ──
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct MetricGroup {
+    pub id: i32,
+    pub name: String,
+    pub description: Option<String>,
+    pub sort_order: i32,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateMetricGroup {
+    pub name: String,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateMetricGroup {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub sort_order: Option<i32>,
+}
+
+// ── Metric Pools ──
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct MetricPool {
+    pub id: i32,
+    pub name: String,
+    pub description: Option<String>,
+    pub sql_query: String,
+    pub datasource_id: i32,
+    pub group_id: Option<i32>,
+    pub result_cache: Option<serde_json::Value>,
+    pub row_count: Option<i32>,
+    pub source_pool_id: Option<i32>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateMetricPool {
+    pub name: String,
+    pub description: Option<String>,
+    pub sql_query: String,
+    pub datasource_id: i32,
+    pub group_id: Option<i32>,
+    pub source_pool_id: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateMetricPool {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub sql_query: Option<String>,
+    pub group_id: Option<i32>,
+}
+
+/// Request to move a report to a different group.
+#[derive(Debug, Deserialize)]
+pub struct MoveToGroup {
+    pub group_id: Option<i32>,
+}
+
+/// AI auto-group suggestion request.
+// ── Report Canvas ──
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct ReportDataSource {
+    pub id: i32,
+    pub report_id: i32,
+    pub metric_id: Option<i32>,
+    pub name: String,
+    pub sql_query: String,
+    pub datasource_id: i32,
+    pub result_cache: Option<serde_json::Value>,
+    pub row_count: Option<i32>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateReportDataSource {
+    pub metric_id: Option<i32>,
+    pub name: String,
+    pub sql_query: String,
+    pub datasource_id: i32,
+}
+
+/// Canvas layout item — position and size in a 12-column grid.
+/// Full canvas layout config stored in reports.layout_config
+#[derive(Debug, Deserialize)]
+pub struct PublishReport {
+    pub status: String, // "draft" or "published"
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ShareReport {
+    pub public: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ShareInfo {
+    pub share_token: String,
+    pub public: bool,
+    pub url: String,
+}
+
+// ── AI Knowledge Base ──
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct KnowledgeEntry {
+    pub id: i32,
+    pub datasource_id: i32,
+    pub category: String,
+    pub title: String,
+    pub content: String,
+    pub source: Option<String>,
+    pub confidence: Option<String>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateKnowledgeEntry {
+    pub datasource_id: i32,
+    pub category: Option<String>,
+    pub title: String,
+    pub content: String,
+    pub source: Option<String>,
+    pub confidence: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateKnowledgeEntry {
+    pub category: Option<String>,
+    pub title: Option<String>,
+    pub content: Option<String>,
+    pub confidence: Option<String>,
+}
+
+// ── AI Few-shot Examples ──
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct AiExample {
+    pub id: i32,
+    pub datasource_id: i32,
+    pub question: String,
+    pub answer: String,
+    pub category: Option<String>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateAiExample {
+    pub datasource_id: i32,
+    pub question: String,
+    pub answer: String,
+    pub category: Option<String>,
+}
+
+// ── Metric Snapshots ──
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct MetricSnapshotSchedule {
+    pub id: i32,
+    pub metric_pool_id: i32,
+    pub schedule_type: String,
+    pub cron_expr: Option<String>,
+    pub enabled: bool,
+    pub retention_days: Option<i32>,
+    pub last_run_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub next_run_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateSnapshotSchedule {
+    pub metric_pool_id: i32,
+    pub schedule_type: String,
+    pub cron_expr: Option<String>,
+    pub retention_days: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateSnapshotSchedule {
+    pub schedule_type: Option<String>,
+    pub cron_expr: Option<String>,
+    pub enabled: Option<bool>,
+    pub retention_days: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct MetricSnapshot {
+    pub id: i32,
+    pub metric_pool_id: i32,
+    pub schedule_id: Option<i32>,
+    pub snapshot_at: chrono::DateTime<chrono::Utc>,
+    pub period_type: String,
+    pub period_key: String,
+    pub result_data: serde_json::Value,
+    pub row_count: Option<i32>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+/// Response for snapshot comparison (YoY / MoM / arbitrary)
+#[derive(Debug, Serialize)]
+pub struct SnapshotComparison {
+    pub current: Option<MetricSnapshot>,
+    pub previous: Option<MetricSnapshot>,
+    pub period_type: String,
+    pub current_key: String,
+    pub previous_key: String,
+}
+
+// ── Column Profiling ──
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct ColumnProfile {
+    pub id: i32,
+    pub datasource_id: i32,
+    pub table_name: String,
+    pub column_name: String,
+    pub distinct_count: Option<i32>,
+    pub null_count: Option<i32>,
+    pub total_count: Option<i32>,
+    pub min_value: Option<String>,
+    pub max_value: Option<String>,
+    pub sample_values: Option<serde_json::Value>,
+    pub profiled_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+// ── Table Descriptions ──
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct TableDescription {
+    pub id: i32,
+    pub datasource_id: i32,
+    pub table_name: String,
+    pub description: String,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpsertTableDescription {
+    pub table_name: String,
+    pub description: String,
+}
+
+// ── Column Descriptions ──
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct ColumnDescription {
+    pub id: i32,
+    pub datasource_id: i32,
+    pub table_name: String,
+    pub column_name: String,
+    pub description: String,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpsertColumnDescription {
+    pub table_name: String,
+    pub column_name: String,
+    pub description: String,
+}

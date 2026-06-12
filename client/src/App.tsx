@@ -1,0 +1,80 @@
+import { lazy, Suspense, useState, useEffect } from 'react';
+import { I18nextProvider } from 'react-i18next';
+import i18n from './i18n';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import LLMConfigProvider from './components/LLMConfigProvider';
+import Layout from './components/Layout';
+import LoginPage from './pages/LoginPage';
+import EasterEgg from './components/EasterEgg';
+import { Sparkle } from '@phosphor-icons/react';
+
+// Lazy-load heavy pages for faster initial load
+const DataSourcesPage = lazy(() => import('./pages/DataSourcesPage'));
+const ConversationsPage = lazy(() => import('./pages/ConversationsPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const ReportDetailPage = lazy(() => import('./pages/ReportDetailPage'));
+const MetricsPage = lazy(() => import('./pages/MetricsPage'));
+const SnapshotsPage = lazy(() => import('./pages/SnapshotsPage'));
+const LogsPage = lazy(() => import('./pages/LogsPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const SharedReportPage = lazy(() => import('./pages/SharedReportPage'));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <Sparkle size={20} className="text-amber-500/40 animate-pulse" />
+    </div>
+  );
+}
+
+export default function App() {
+  const [authed, setAuthed] = useState<boolean | null>(null); // null = checking
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) { setAuthed(false); return; }
+    // Validate token
+    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => { setAuthed(r.ok); if (!r.ok) localStorage.removeItem('token'); })
+      .catch(() => setAuthed(false));
+  }, []);
+
+  // Still checking
+  if (authed === null) {
+    return (
+      <div className="min-h-screen bg-obsidian-950 flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <I18nextProvider i18n={i18n}>
+      <EasterEgg />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          {/* Public share route — no auth required */}
+          <Route path="/share/:token" element={<SharedReportPage />} />
+
+          {/* Auth check */}
+          {!authed ? (
+            <Route path="*" element={<LoginPage onLogin={() => setAuthed(true)} />} />
+          ) : (
+            <Route element={<LLMConfigProvider><Layout /></LLMConfigProvider>}>
+              <Route path="/" element={<Navigate to="/reports" replace />} />
+              <Route path="/datasources" element={<DataSourcesPage />} />
+              <Route path="/knowledge-graph" element={<Navigate to="/datasources" replace />} />
+              <Route path="/conversations" element={<ConversationsPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/reports/:id" element={<ReportDetailPage />} />
+              <Route path="/metrics" element={<MetricsPage />} />
+              <Route path="/snapshots" element={<SnapshotsPage />} />
+              <Route path="/logs" element={<LogsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Route>
+          )}
+        </Routes>
+      </Suspense>
+    </I18nextProvider>
+  );
+}
