@@ -92,21 +92,44 @@ pub fn html_dashboard_prompt(data_context: &str) -> String {
 1. Output a COMPLETE HTML document (<!DOCTYPE html> to </html>)
 2. Use ECharts 5 from the LOCAL host (already bundled, do NOT use any CDN): <script src="/vendor/echarts.min.js"></script>
 3. Embed the provided data directly as JavaScript variables — copy the JSON arrays exactly
-4. Design a professional dark-themed dashboard with:
-   - Dark background (#0d0d14 or similar)
-   - Gold/amber accent color (#d4a853)
-   - Clean typography — use Google Fonts (e.g. Inter): <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">. The server routes these through a fast China mirror automatically.
-   - Proper spacing and visual hierarchy
-5. Layout guidelines:
-   - KPI cards at the top (large numbers with labels)
-   - Charts in the middle (bar, line, pie as appropriate for the data shape)
-   - Use CSS Grid or Flexbox for responsive layout
-   - Add subtle borders, shadows, and gradients for depth
-6. Chart styling:
-   - Dark chart backgrounds (transparent or very dark)
-   - Gold/green/blue color palette for data series
-   - Proper axis labels, tooltips, and legends
-   - Smooth animations
+4. Apply a refined, high-end "executive dashboard" design system — not a generic template. Aim for the polish of a premium analytics product (think Linear / Vercel / Stripe dashboards).
+
+   TYPOGRAPHY
+   - Load Inter via Google Fonts: <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"> (server proxies through a fast China mirror).
+   - Type scale: card/section labels 11px UPPERCASE letter-spacing:0.08em in the dim text color; body 13px; card titles 14px weight 600; KPI values 32-48px weight 600 letter-spacing:-0.02em line-height:1.05.
+   - ALL numeric text uses font-variant-numeric:tabular-nums so digits align. Format big numbers with thousands separators and compact units where natural (1.2M, 84.3%).
+
+   SPACING & LAYOUT (strict 8px system)
+   - Center content in a max-width container (~1280-1440px) with margin:0 auto and 24-32px outer padding. Be generous with whitespace.
+   - Consistent rhythm: 16-20px gaps between cards, 20-24px padding inside cards.
+   - Hierarchy top-to-bottom: header bar -> KPI row (3-4 cards) -> primary chart -> secondary charts / table.
+
+   SURFACES & DEPTH
+   - Never pure black. Use layered surfaces: page bg, card bg one step lighter, elevated/hover another step.
+   - Hairline borders: 1px solid at low opacity (e.g. rgba(255,255,255,0.07) on dark). Soft, low shadows for elevation — never heavy drop shadows.
+   - Consistent radius scale: 14-16px cards, 8px chips/buttons.
+
+   KPI CARDS
+   - Structure each card as: small uppercase muted label -> large value -> optional delta line.
+   - Show a trend delta with a triangle glyph colored positive(green)/negative(red) ONLY when the data genuinely supports the comparison. NEVER fabricate a delta or trend.
+
+   MICRO-INTERACTIONS
+   - Card hover lifts subtly via transition: all 200ms cubic-bezier(0.4,0,0.2,1) (border/background/translateY of ~1px).
+   - Wrap non-essential motion in @media (prefers-reduced-motion: no-preference) so reduced-motion users get a static page.
+
+5. Define design tokens ONCE in :root and reuse them everywhere for consistency, for example:
+   :root {{
+     --bg:#0b0b11; --surface:#14141d; --surface-2:#1b1b26; --border:rgba(255,255,255,0.07);
+     --text:#e8e8ec; --text-dim:#9aa0ab; --accent:#d4a853; --pos:#34d399; --neg:#f87171;
+     --radius:15px; --gap:20px;
+   }}
+   Build a coherent series palette from --accent plus 2-3 harmonized hues and reuse it across every chart.
+
+6. Chart styling (maximize data-ink, minimize clutter):
+   - Transparent chart backgrounds; no chart-level title boxes or borders.
+   - Axes: hide or lighten axis lines; gridlines very faint (dashed, low opacity) or removed entirely; small muted axis labels.
+   - Prefer donut over pie, area charts with a subtle vertical gradient over flat fills, and rounded bar corners. No 3D, no shadows on data marks.
+   - Tooltips show formatted values (separators/units). Animations smooth but quick (300-500ms). Legends minimal, or omitted when labels are self-evident.
 7. Add a title bar at the top with the dashboard name and current date
 8. Make it FULLY RESPONSIVE — specifically:
    - Use CSS Grid with auto-fit or media queries
@@ -117,12 +140,18 @@ pub fn html_dashboard_prompt(data_context: &str) -> String {
 9. NO external dependencies except Google Fonts — ECharts MUST be loaded locally from /vendor/echarts.min.js (never a CDN). Do not use any other CDN.
 10. Output ONLY the raw HTML — no markdown fences, no explanations before or after
 
-## Style Reference
-- Background: #0d0d14
-- Card background: #12121a with border #1f1f28
-- Text: #e5e7eb (primary), #9ca3af (secondary)
-- Accent: #d4a853 (gold), #4ade80 (green), #60a5fa (blue)
-- Font: 'Inter', system-ui, sans-serif"#,
+## Style Reference (default "Obsidian" theme — refined dark)
+Design tokens (use as :root variables):
+- --bg: #0b0b11            (page background, never pure black)
+- --surface: #14141d       (card background)
+- --surface-2: #1b1b26     (elevated / hover)
+- --border: rgba(255,255,255,0.07)
+- --text: #e8e8ec          (primary)  --text-dim: #9aa0ab (secondary/labels)
+- --accent: #d4a853 (gold)  --accent-2: #22d3ee (cyan)  --accent-3: #a78bfa (violet)
+- --pos: #34d399 (up/good)  --neg: #f87171 (down/bad)
+- --radius: 15px   --gap: 20px
+Typography: 'Inter', system-ui, sans-serif; tabular-nums on numbers; KPI 32-48px / weight 600 / letter-spacing -0.02em.
+Chart palette: [--accent, --accent-2, --accent-3, --text-dim] reused consistently."#,
         data_context
     )
 }
@@ -146,7 +175,7 @@ pub fn html_refine_prompt(current_html: &str, data_context: &str) -> String {
 3. Output the COMPLETE modified HTML document (<!DOCTYPE html> to </html>)
 4. Apply the user's requested changes while preserving the overall structure
 5. Keep loading ECharts 5 locally from /vendor/echarts.min.js (never a CDN) and keep the embedded real data. Google Fonts are allowed (served via a fast China mirror).
-6. Maintain the dark theme and professional styling
+6. Maintain the established design system — design tokens (:root variables), 8px spacing rhythm, typography scale, tabular-nums, hairline borders, layered surfaces, and clean data-ink charts. Preserve the high-end polish.
 7. Output ONLY the raw HTML — no markdown fences, no explanations
 8. If the user asks to change chart types, colors, layout, add/remove elements — do it
 9. Keep the page self-contained and functional"#,

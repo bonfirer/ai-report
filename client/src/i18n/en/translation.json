@@ -176,6 +176,8 @@
     "rollback": "Rollback",
     "rollbackHint": "Rollback to last published version",
     "rollbackSuccess": "Rolled back to the published version",
+    "publishedToast": "Published — the public link is now live",
+    "unpublishedToast": "Unpublished — the public link is now offline",
     "versions": "History",
     "currentVersion": "Current version",
     "askHistory": "Ask history",

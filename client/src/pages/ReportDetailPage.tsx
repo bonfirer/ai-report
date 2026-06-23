@@ -263,8 +263,14 @@ export default function ReportDetailPage() {
   // ── Actions ──
   const handlePublish = async () => {
     if (!report) return;
-    const updated = await reportsApi.publish(report.id, report.status === 'published' ? 'draft' : 'published').catch(() => null);
-    if (updated) setReport(updated);
+    const goPublish = report.status !== 'published';
+    const updated = await reportsApi.publish(report.id, goPublish ? 'published' : 'draft').catch(() => null);
+    if (updated) {
+      setReport(updated);
+      toast.success(goPublish ? t('reportDetail.publishedToast') : t('reportDetail.unpublishedToast'));
+    } else {
+      toast.error(t('errors.saveFailed'));
+    }
   };
 
   const handleRollback = async () => {
@@ -848,26 +854,26 @@ function RefreshIntervalPicker({ value, onChange, t }: { value: number; onChange
 // ── macOS Dock-style Style Selector ──
 const DOCK_STYLES = [
   // ── Dark & Tech ──
-  { key: 'obsidian', emoji: '🖤', label: '黑曜石', prompt: '完全重新设计整个页面视觉风格为【黑曜石】：背景纯黑(#08080c)；主色金色(#d4a853)辅以暖灰(#a3a3a3)；字体Inter/system-ui，标题font-weight:600 letter-spacing:-0.02em；KPI数字52px+用金色，下方8px灰色标签；卡片background:#111116 border:1px solid #1f1f28 border-radius:16px padding:24px，hover时border变为rgba(212,168,83,0.3)；布局3列grid gap:16px；图表ECharts用金色(#d4a853)+青色(#22d3ee)+灰色(#6b7280)三色系；整体高端克制，像奢侈品仪表盘' },
-  { key: 'neon', emoji: '💚', label: '赛博霓虹', prompt: '完全重新设计整个页面视觉风格为【赛博霓虹】：背景#000000；唯一强调色#00ff88(霓虹绿)；字体全部JetBrains Mono/monospace font-weight:400；KPI数字用text-shadow:0 0 30px #00ff88,0 0 60px #00ff8844 强烈发光；卡片border-radius:0(方角) border:1px solid #00ff8833 background:#000000；hover时border变亮+box-shadow:0 0 20px #00ff8822；布局2列主+右侧窄列(8:4)；所有线条极细(0.5px)；加扫描线伪元素(repeating-linear-gradient每3px一条1px的半透明绿线)；图表只用绿色系' },
-  { key: 'midnight', emoji: '🌌', label: '深空', prompt: '完全重新设计整个页面视觉风格为【深空】：背景从#0a0a1a到#0f0f2e的微妙渐变；主色柔和薰衣草紫(#a78bfa)+星光白(#f1f5f9)；字体Inter font-weight:300(细体)标题用font-weight:500；KPI数字大(48px)用白色,副标题用紫色；卡片background:rgba(15,15,40,0.8) backdrop-filter:blur(12px) border:1px solid rgba(167,139,250,0.15) border-radius:20px；布局宽松gap:20px 2列对称；图表配色紫(#a78bfa)+蓝(#60a5fa)+粉(#f472b6)；整体像太空站控制面板' },
+  { key: 'obsidian', emoji: '🖤', label: '黑曜石', prompt: '完全重新设计整个页面视觉风格为【黑曜石 · 高端克制】：分层背景 页面#0b0b11／卡片#14141d／悬浮#1b1b26，绝不用纯黑；主色金#d4a853，文字#e8e8ec/次级#9aa0ab；字体Inter，标题weight600 letter-spacing-0.02em，数字一律tabular-nums；KPI数值40px金色+下方11px大写灰标签letter-spacing0.08em，仅在数据支持时显示▲▼涨跌色(绿#34d399/红#f87171)；卡片1px描边rgba(255,255,255,0.07) 圆角15px padding24px，hover时上浮1px+描边转金色，transition200ms cubic-bezier(0.4,0,0.2,1)；3列grid gap20px居中max-width1360px；图表透明底、网格线极淡虚线、坐标轴隐藏、配色金#d4a853+青#22d3ee+紫#a78bfa，环形图替代饼图；气质像奢侈品牌的高管仪表盘' },
+  { key: 'neon', emoji: '💚', label: '赛博霓虹', prompt: '完全重新设计整个页面视觉风格为【赛博霓虹】：背景#05060a，唯一强调色霓虹绿#00ff88；字体JetBrains Mono，数字tabular-nums；KPI数值用text-shadow:0 0 24px #00ff88aa做克制发光（不要糊成一团），标签小写灰绿；卡片纯方角border-radius0 1px实线#00ff8833 背景#0a0c10，hover时描边变亮+box-shadow:0 0 16px #00ff8822；主+右窄列8:4布局；叠加极淡扫描线(repeating-linear-gradient每4px一条1px半透明绿)；图表只用绿色明度梯度、线条0.5px、网格隐藏；气质冷峻精密的终端面板' },
+  { key: 'midnight', emoji: '🌌', label: '深空', prompt: '完全重新设计整个页面视觉风格为【深空】：背景从#0a0a1a到#0e0e26柔和径向渐变；主色薰衣草紫#a78bfa+星光白#f1f5f9，文字次级#8b8fa3；字体Inter标题weight500正文weight300，数字tabular-nums；KPI数值44px白色+紫色小标签；卡片background:rgba(18,18,40,0.6) backdrop-filter:blur(14px) 1px描边rgba(167,139,250,0.16) 圆角20px；宽松对称2列 gap24px；图表配色紫#a78bfa+蓝#60a5fa+粉#f472b6，面积图带极淡竖向渐变、网格隐藏；气质静谧高级的太空站控制台' },
 
   // ── Business & Professional ──
-  { key: 'corporate', emoji: '🔵', label: '商务蓝', prompt: '完全重新设计整个页面视觉风格为【商务蓝】：背景#0f172a(深海军蓝)；主色#3b82f6(蓝)+白色文字；字体Inter font-weight:400正文/700标题；KPI数字白色44px font-weight:700,背景用蓝色渐变卡片(linear-gradient 135deg #1e40af to #3b82f6)内白字；其他卡片background:#1e293b border:1px solid #334155 border-radius:12px；布局紧凑3列grid gap:12px；表格有斑马纹(#1e293b/#0f172a交替)表头蓝色背景白字；图表蓝色系(#3b82f6,#60a5fa,#93c5fd,#bfdbfe)；整体像企业级BI工具' },
-  { key: 'executive', emoji: '👔', label: '总裁灰', prompt: '完全重新设计整个页面视觉风格为【总裁灰】：背景#18181b(锌灰)；配色只用灰度+一个强调色翡翠绿(#10b981)；字体Inter font-weight:300(极细体)标题用font-weight:600；KPI数字56px font-weight:200(超细),绿色仅用于正向指标箭头；卡片background:#27272a border:none border-radius:8px box-shadow:0 1px 3px rgba(0,0,0,0.3)；布局4列KPI行+2列图表行，留白极大padding:32px；图表只用灰(#71717a)+绿(#10b981)两色；整体像CEO专属的极简仪表盘' },
+  { key: 'corporate', emoji: '🔵', label: '商务蓝', prompt: '完全重新设计整个页面视觉风格为【商务蓝】：背景#0f172a深海军蓝/卡片#172033；主色#3b82f6，文字白#f8fafc/次级#94a3b8；字体Inter正文weight400标题weight600，数字tabular-nums；首排KPI用一张蓝色渐变主卡(linear-gradient135deg #1e40af→#3b82f6)白字突出核心指标，其余卡片#172033 1px描边#27374d 圆角12px；3列grid gap16px居中；表格斑马纹(#172033/#0f172a交替)、表头深蓝、行hover高亮；图表蓝色明度梯度#3b82f6/#60a5fa/#93c5fd、网格极淡；气质沉稳可信的企业级BI' },
+  { key: 'executive', emoji: '👔', label: '总裁灰', prompt: '完全重新设计整个页面视觉风格为【总裁灰 · 极简】：背景#161619锌灰/卡片#1f1f23；纯灰度+唯一强调翡翠绿#10b981；字体Inter，标题weight500、KPI数值56px weight200超细、tabular-nums，绿色只用于正向▲；卡片无边框 圆角10px 极淡阴影0 1px 3px rgba(0,0,0,0.4)；4列KPI行+2列图表行，留白极大padding32px gap24px，用1px hairline分隔区块；图表只用灰#71717a+绿#10b981两色、线条克制、无网格；气质CEO专属的留白美学仪表盘' },
 
   // ── Modern & Trendy ──
-  { key: 'aurora', emoji: '🟣', label: '极光', prompt: '完全重新设计整个页面视觉风格为【极光】：背景#0c0a1d；大背景有微弱的极光渐变(用一个fixed定位的div做radial-gradient:紫#7c3aed 左上+蓝#2563eb 右下+粉#ec4899 右上,各opacity:0.08)；字体Inter font-weight:400；卡片background:rgba(255,255,255,0.03) backdrop-filter:blur(20px) border:1px solid rgba(255,255,255,0.06) border-radius:24px(超大圆角)；KPI数字用background:linear-gradient(135deg,#a78bfa,#60a5fa) -webkit-background-clip:text渐变字色；布局不规则(首行1个大卡span-2+2个小卡)；图表用紫粉蓝渐变色系' },
-  { key: 'glassmorphism', emoji: '💎', label: '玻璃态', prompt: '完全重新设计整个页面视觉风格为【玻璃态】：背景#0d1117(GitHub深色)上面叠加2-3个大彩色模糊圆(用absolute定位的div width:400px height:400px border-radius:50% filter:blur(100px) opacity:0.15 颜色分别用#7c3aed #0ea5e9 #f97316)；字体Inter font-weight:300；卡片background:rgba(255,255,255,0.04) backdrop-filter:blur(24px) border:1px solid rgba(255,255,255,0.08) border-radius:16px；KPI数字白色48px font-weight:200；布局2列等宽gap:16px；图表用半透明色(rgba)描边无填充；整体通透高级' },
-  { key: 'brutalist', emoji: '⬛', label: '粗野主义', prompt: '完全重新设计整个页面视觉风格为【粗野主义】：背景#f5f5f4(暖白纸色)；文字纯黑#0a0a0a；字体标题用粗黑体(font-weight:900 text-transform:uppercase letter-spacing:0.05em)正文用mono；KPI数字72px font-weight:900紧凑行高(line-height:1)；卡片无背景色 border:3px solid #0a0a0a border-radius:0(纯方角) padding:20px；布局不对称(左列窄30%右列宽70%或交错)；图表只用黑+一个亮黄(#facc15)；无阴影无渐变；整体像先锋艺术展海报' },
+  { key: 'aurora', emoji: '🟣', label: '极光', prompt: '完全重新设计整个页面视觉风格为【极光】：背景#0b0a18，一个fixed层做极光径向渐变(紫#7c3aed左上+蓝#2563eb右下+粉#ec4899右上 各opacity0.10 blur后铺底)；字体Inter weight400，数字tabular-nums；卡片background:rgba(255,255,255,0.035) backdrop-filter:blur(20px) 1px描边rgba(255,255,255,0.08) 超大圆角22px；KPI数值用linear-gradient(135deg,#a78bfa,#60a5fa) background-clip:text渐变字48px；非对称布局(首行一张大卡span2+两张小卡)；图表紫粉蓝渐变、面积图柔和；气质梦幻通透的新潮看板' },
+  { key: 'glassmorphism', emoji: '💎', label: '玻璃态', prompt: '完全重新设计整个页面视觉风格为【玻璃态】：背景#0d1117，铺2-3个大彩色模糊光斑(absolute div 420px 圆形 filter:blur(110px) opacity0.16 颜色#7c3aed/#0ea5e9/#f97316)；字体Inter weight300，数字tabular-nums；卡片background:rgba(255,255,255,0.045) backdrop-filter:blur(24px) 1px描边rgba(255,255,255,0.09) 圆角16px，hover提亮；KPI数值白色48px weight200；2列等宽gap16px；图表用半透明描边、极淡填充、网格隐藏；气质通透轻盈的高级玻璃质感' },
+  { key: 'brutalist', emoji: '⬛', label: '粗野主义', prompt: '完全重新设计整个页面视觉风格为【粗野主义】：背景暖白纸色#f5f5f4，文字纯黑#0a0a0a；标题超粗黑体weight900 大写 letter-spacing0.04em，正文用mono，数字tabular-nums；KPI数值72px weight900 行高1；卡片无背景 3px实线黑边 纯方角 padding20px；刻意非对称布局(左窄30%右宽70%或交错)；唯一强调亮黄#facc15；图表只用黑+黄、粗线条、无阴影无渐变；气质先锋艺术展海报般的强冲击数据墙' },
 
   // ── Warm & Creative ──
-  { key: 'sunset', emoji: '🌅', label: '日落暖橙', prompt: '完全重新设计整个页面视觉风格为【日落暖橙】：背景#1a1215(暗巧克力)；主色橙(#f97316)到玫红(#e11d48)渐变；字体Inter font-weight:500；KPI数字用background:linear-gradient(135deg,#f97316,#e11d48) background-clip:text渐变色44px；卡片background:#231920 border:1px solid #3d2030 border-radius:14px；hover时border用橙色glow；布局3列，KPI行每个卡片左侧有4px粗渐变条(border-left)；图表用暖色系(#f97316,#ef4444,#eab308,#f472b6)面积图+柱图；整体热烈活力' },
-  { key: 'mint', emoji: '🌿', label: '薄荷清新', prompt: '完全重新设计整个页面视觉风格为【薄荷清新】：背景#f0fdf4(极浅薄荷绿)；主色翠绿(#059669)+深灰文字(#1f2937)；字体Inter font-weight:400正文/600标题；KPI数字36px font-weight:700 颜色#059669；卡片background:#ffffff border:1px solid #d1fae5 border-radius:12px box-shadow:0 2px 8px rgba(5,150,105,0.06)；布局3列等宽gap:16px整洁；表格绿色表头白字；图表用绿色系(#059669,#34d399,#6ee7b7,#a7f3d0)；整体清爽专业像医疗/环保仪表盘' },
+  { key: 'sunset', emoji: '🌅', label: '日落暖橙', prompt: '完全重新设计整个页面视觉风格为【日落暖橙】：背景#17110f暗巧克力/卡片#211712；主色橙#f97316→玫红#e11d48渐变，文字#f5e9e2/次级#b59a8f；字体Inter weight500，数字tabular-nums；KPI数值用橙玫渐变background-clip:text 44px；卡片1px描边#3a221c 圆角14px，左侧4px渐变竖条点题，hover橙色微光；3列gap20px；图表暖色系#f97316/#ef4444/#eab308/#f472b6，面积图带渐变；气质热烈而不刺眼的活力看板' },
+  { key: 'mint', emoji: '🌿', label: '薄荷清新', prompt: '完全重新设计整个页面视觉风格为【薄荷清新】：背景#f4fbf6极浅薄荷/卡片纯白；主色翠绿#059669，文字#14241d/次级#5b6b63；字体Inter正文weight400标题weight600，数字tabular-nums；KPI数值38px weight700绿色+灰标签；卡片1px描边#d5efe0 圆角14px 柔影0 2px 10px rgba(5,150,105,0.07)，hover微抬；3列等宽gap18px；表格绿色表头白字、行hover浅绿；图表绿色明度梯度#059669/#34d399/#6ee7b7、网格极淡；气质清爽专业的医疗/环保风仪表盘' },
 
   // ── Classic & Elegant ──
-  { key: 'ivory', emoji: '📜', label: '象牙学术', prompt: '完全重新设计整个页面视觉风格为【象牙学术】：背景#faf9f7(象牙白)；文字#292524(暖黑)；字体标题用衬线体(Georgia/Playfair Display/serif) font-weight:700 font-style:italic，正文用无衬线(Inter)；KPI数字48px font-weight:300 color:#44403c 下划线用2px amber装饰线(border-bottom)；卡片background:#ffffff border:1px solid #e7e5e4 border-radius:4px(极小圆角)；布局对称2列，大量上下留白(padding:40px)；图表用大地色系(#92400e,#b45309,#78716c,#57534e)线条图为主；整体像学术论文配图' },
-  { key: 'noir', emoji: '🎬', label: '黑色电影', prompt: '完全重新设计整个页面视觉风格为【黑色电影】：背景#0a0a0a；只用黑白灰+一个点缀红(#dc2626)；字体Courier New/monospace全部大写(text-transform:uppercase)标题letter-spacing:0.1em；KPI数字白色60px font-weight:100(极细hairline)；卡片background:#141414 border:1px solid #262626 border-radius:0；布局单列全宽，信息从上到下流动如电影字幕；红色只用于警告/关键数据；图表极简只有线条(1px白色/灰色)；整体像黑白电影片头的数据化' },
+  { key: 'ivory', emoji: '📜', label: '象牙学术', prompt: '完全重新设计整个页面视觉风格为【象牙学术】：背景象牙白#faf9f7，文字暖黑#292524/次级#78716c；标题用衬线体(Georgia/Playfair Display) weight700可斜体，正文Inter，数字tabular-nums；KPI数值48px weight300 下方2px金色装饰线；卡片纯白 1px描边#e7e5e4 极小圆角6px 无重阴影；对称2列、上下大留白padding40px、区块间1px hairline分隔；图表大地色系#92400e/#b45309/#a8a29e、以细线条图为主、网格隐藏；气质学术期刊配图般的克制优雅' },
+  { key: 'noir', emoji: '🎬', label: '黑色电影', prompt: '完全重新设计整个页面视觉风格为【黑色电影】：背景#0a0a0a，黑白灰+唯一点缀红#dc2626；字体Courier/mono 全大写 标题letter-spacing0.12em，数字tabular-nums；KPI数值白色60px weight100极细；卡片#121212 1px描边#262626 纯方角；单列全宽、信息如电影字幕自上而下流动、区块间细线分隔；红色只用于关键/警示数据；图表极简只留1px白/灰线条、无网格无填充；气质黑白电影片头般的高级叙事感' },
 ];
 
 function StyleDock({ selectedKey, onSelect }: { selectedKey: string | null; onSelect: (key: string, prompt: string) => void }) {

@@ -320,15 +320,35 @@ async fn run_migrations(pool: &MySqlPool, migration_sql: &str) {
         match sqlx::query(trimmed).execute(pool).await {
             Ok(_) => {}
             Err(e) => {
-                // Table-already-exists (1050), duplicate-entry (1062),
-                // duplicate-column (1060), duplicate-key (1061) are expected on re-runs.
-                if let Some(db_err) = e.as_database_error() {
-                    let code = db_err.code().unwrap_or_default();
-                    if code == "42S01" || code == "1050" || code == "1060" || code == "1061"
-                        || code == "1062" || code == "23000"
-                    {
-                        continue;
-                    }
+                // Migrations are idempotent: re-running them on an existing
+                // database makes "object already exists / already applied"
+                // statements fail. Those are expected and silently skipped.
+                //
+                // We match primarily on the MySQL native error number (sqlx's
+                // `code()` returns the SQLSTATE, not the 1050/1060/... number),
+                // with a SQLSTATE fallback for portability.
+                let ignorable = e
+                    .as_database_error()
+                    .map(|db_err| {
+                        let mysql_num = db_err
+                            .as_error()
+                            .downcast_ref::<sqlx::mysql::MySqlDatabaseError>()
+                            .map(|me| me.number());
+                        let sqlstate = db_err.code().unwrap_or_default();
+                        // 1050 table exists, 1060 dup column, 1061 dup key name,
+                        // 1062 dup entry (seed data), 1068 multiple PK, 1091 can't
+                        // DROP (object missing), 1826 dup FK.
+                        matches!(
+                            mysql_num,
+                            Some(1050 | 1060 | 1061 | 1062 | 1068 | 1091 | 1826)
+                        )
+                        // SQLSTATE fallback: 42S01 table exists, 42S21 dup column,
+                        // 23000 integrity/dup-entry.
+                        || matches!(sqlstate.as_ref(), "42S01" | "42S21" | "23000")
+                    })
+                    .unwrap_or(false);
+                if ignorable {
+                    continue;
                 }
                 tracing::warn!(
                     "Migration statement warning [{}]: {}",

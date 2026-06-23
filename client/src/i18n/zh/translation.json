@@ -176,6 +176,8 @@
     "rollback": "回滚",
     "rollbackHint": "回滚到上次发布的版本",
     "rollbackSuccess": "已回滚到上次发布的版本",
+    "publishedToast": "已发布 — 公开链接已上线",
+    "unpublishedToast": "已取消发布 — 公开链接已下线",
     "versions": "版本历史",
     "currentVersion": "当前版本",
     "askHistory": "提问历史",

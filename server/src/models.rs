@@ -453,23 +453,6 @@ pub struct SnapshotComparison {
     pub previous_key: String,
 }
 
-// ── Column Profiling ──
-
-#[derive(Debug, Serialize, Deserialize, FromRow)]
-pub struct ColumnProfile {
-    pub id: i32,
-    pub datasource_id: i32,
-    pub table_name: String,
-    pub column_name: String,
-    pub distinct_count: Option<i32>,
-    pub null_count: Option<i32>,
-    pub total_count: Option<i32>,
-    pub min_value: Option<String>,
-    pub max_value: Option<String>,
-    pub sample_values: Option<serde_json::Value>,
-    pub profiled_at: Option<chrono::DateTime<chrono::Utc>>,
-}
-
 // ── Table Descriptions ──
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]

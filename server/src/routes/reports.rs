@@ -485,14 +485,31 @@ pub async fn share(
         _ => uuid::Uuid::new_v4().to_string().replace("-", ""),
     };
 
-    // Single UPDATE always — sets both token and public flag
-    sqlx::query("UPDATE reports SET share_token = ?, share_public = ? WHERE id = ?")
+    // Update the share link. Enabling a public link also publishes the report
+    // (publishing is the public-visibility gate, so a freshly-shared link is
+    // live right away). We snapshot into published_html only if there isn't one
+    // yet, so an existing approved snapshot is preserved — use the "Publish"
+    // button to push later edits. Turning sharing OFF leaves publish state alone.
+    if payload.public {
+        sqlx::query(
+            "UPDATE reports SET share_token = ?, share_public = 1, \
+             status = 'published', \
+             published_html = COALESCE(published_html, html_content), \
+             updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        )
         .bind(&token)
-        .bind(payload.public)
         .bind(id)
         .execute(&state.db)
         .await
         .map_err(crate::routes::internal_error)?;
+    } else {
+        sqlx::query("UPDATE reports SET share_token = ?, share_public = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+            .bind(&token)
+            .bind(id)
+            .execute(&state.db)
+            .await
+            .map_err(crate::routes::internal_error)?;
+    }
 
     Ok(Json(ShareInfo {
         url: format!("/share/{}", token),
@@ -539,6 +556,21 @@ fn localize_report_html(html: &str) -> String {
     // Google Fonts -> official China endpoints (keeps any requested font family working).
     s.replace("fonts.googleapis.com", "fonts.googleapis.cn")
         .replace("fonts.gstatic.com", "fonts.gstatic.cn")
+}
+
+/// Neutral page shown at a public share link when the report is not currently
+/// published (never published, or taken offline via "unpublish").
+fn shared_offline_page() -> String {
+    r#"<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Report unavailable</title></head>
+<body style="margin:0;background:#0b0b11;color:#9aa0ab;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:Inter,system-ui,sans-serif">
+<div style="text-align:center;max-width:420px;padding:32px">
+  <div style="font-size:40px;margin-bottom:16px">📊</div>
+  <h1 style="font-size:16px;font-weight:600;color:#e8e8ec;margin:0 0 8px">报表当前不可用 · Report unavailable</h1>
+  <p style="font-size:13px;line-height:1.6;margin:0">该报表尚未发布或已下线。<br>This report is not currently published.</p>
+</div></body></html>"#
+        .to_string()
 }
 
 pub async fn get_html(
@@ -625,12 +657,19 @@ pub async fn view_shared_html(
     .map_err(crate::routes::internal_error)?
     .ok_or((StatusCode::NOT_FOUND, "Report not found or not public".to_string()))?;
 
-    let mut html = report.published_html
-        .or(report.html_content)
-        .unwrap_or_else(|| {
-            "<html><body style='background:#0d0d14;color:#9ca3af;display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui'><p>This report has not been published yet.</p></body></html>".to_string()
-        });
-    html = localize_report_html(&html);
+    // Publishing is the public-visibility gate: only a *published* report serves
+    // its approved snapshot (published_html). Draft reports, or ones taken
+    // offline via "unpublish", show a neutral offline notice instead of content.
+    let is_published = report.status.as_deref() == Some("published");
+    let source = if is_published {
+        report.published_html.clone().or_else(|| report.html_content.clone())
+    } else {
+        None
+    };
+    let mut html = match source {
+        Some(h) => localize_report_html(&h),
+        None => return Ok(axum::response::Html(shared_offline_page())),
+    };
 
     // Inject persisted refresh interval
     let interval_ms = (report.refresh_interval.unwrap_or(1) as u64) * 60 * 1000;
