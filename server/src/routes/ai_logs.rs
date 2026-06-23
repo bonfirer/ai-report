@@ -49,7 +49,7 @@ pub async fn list(
     let (total,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM ai_logs")
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let logs = sqlx::query_as::<_, AiLogEntry>(
         "SELECT id, request_type, model, prompt_tokens, completion_tokens, duration_ms, status, error_message, context, \
@@ -60,7 +60,7 @@ pub async fn list(
     .bind(offset)
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as u32;
 
@@ -84,7 +84,7 @@ pub async fn get_one(
     .bind(id)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(crate::routes::internal_error)?
     .ok_or((StatusCode::NOT_FOUND, "Log not found".to_string()))?;
 
     Ok(Json(log))

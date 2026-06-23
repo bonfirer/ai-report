@@ -28,7 +28,7 @@ pub async fn list(
     )
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(reports))
 }
@@ -62,7 +62,7 @@ pub async fn create(
     });
 
     let pool_ids_json = serde_json::to_value(&payload.pool_ids)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let result = sqlx::query(
         "INSERT INTO reports (title, description, pool_ids, config, group_id) VALUES (?, ?, ?, ?, ?)",
@@ -74,13 +74,13 @@ pub async fn create(
     .bind(payload.group_id)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let report = sqlx::query_as::<_, Report>("SELECT * FROM reports WHERE id = ?")
         .bind(result.last_insert_id() as i32)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok((StatusCode::CREATED, Json(report)))
 }
@@ -93,7 +93,7 @@ pub async fn get_one(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Report not found".to_string()))?;
 
     Ok(Json(report))
@@ -109,7 +109,7 @@ pub async fn render(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Report not found".to_string()))?;
 
     if let Some(prompt) = body.prompt.clone() {
@@ -119,7 +119,7 @@ pub async fn render(
             .bind(id)
             .execute(&state.db)
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            .map_err(crate::routes::internal_error)?;
 
         let state_clone = Arc::clone(&state);
         let report_clone = report.clone();
@@ -171,20 +171,20 @@ pub async fn render(
     } else if let Some(config) = &body.config {
         // Manual config update (legacy)
         let new_config = serde_json::to_value(config)
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            .map_err(crate::routes::internal_error)?;
         sqlx::query("UPDATE reports SET config = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
             .bind(&new_config)
             .bind(id)
             .execute(&state.db)
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            .map_err(crate::routes::internal_error)?;
     }
 
     let updated = sqlx::query_as::<_, Report>("SELECT * FROM reports WHERE id = ?")
         .bind(id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(updated))
 }
@@ -200,7 +200,7 @@ pub async fn get_status(
     .bind(id)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     match row {
         Some((status, error, updated_at)) => Ok(Json(serde_json::json!({
@@ -222,7 +222,7 @@ async fn generate_html_dashboard(
     let llm_cfg = sqlx::query_as::<_, LLMConfig>("SELECT * FROM llm_config WHERE id = 1")
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::BAD_REQUEST, "LLM not configured".to_string()))?;
 
     if llm_cfg.api_key.is_empty() {
@@ -238,7 +238,7 @@ async fn generate_html_dashboard(
     .bind(report.id)
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let mut data_context = String::new();
     data_context.push_str(&format!("Report ID: {}\n\n", report.id));
@@ -271,7 +271,7 @@ async fn generate_html_dashboard(
         )
         .fetch_all(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
         for m in &metrics_data {
             data_context.push_str(&format!("### {} (metric_id={})\n", m.name, m.id));
@@ -403,7 +403,7 @@ pub async fn delete(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Report not found".to_string()));
@@ -426,20 +426,20 @@ pub async fn publish(
             .bind(id)
             .execute(&state.db)
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            .map_err(crate::routes::internal_error)?;
     } else {
         sqlx::query("UPDATE reports SET status = 'draft', updated_at = CURRENT_TIMESTAMP WHERE id = ?")
             .bind(id)
             .execute(&state.db)
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            .map_err(crate::routes::internal_error)?;
     }
 
     let report = sqlx::query_as::<_, Report>("SELECT * FROM reports WHERE id = ?")
         .bind(id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(report))
 }
@@ -454,13 +454,13 @@ pub async fn rollback(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let report = sqlx::query_as::<_, Report>("SELECT * FROM reports WHERE id = ?")
         .bind(id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(report))
 }
@@ -478,7 +478,7 @@ pub async fn share(
     .bind(id)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let token = match existing {
         Some((Some(t),)) if !t.is_empty() => t,
@@ -492,7 +492,7 @@ pub async fn share(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(ShareInfo {
         url: format!("/share/{}", token),
@@ -512,7 +512,7 @@ pub async fn view_shared(
     .bind(&token)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(crate::routes::internal_error)?
     .ok_or((StatusCode::NOT_FOUND, "Report not found or not public".to_string()))?;
 
     Ok(Json(report))
@@ -552,7 +552,7 @@ pub async fn get_html(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Report not found".to_string()))?;
 
     let mut html = report.html_content.unwrap_or_else(|| {
@@ -622,7 +622,7 @@ pub async fn view_shared_html(
     .bind(&token)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(crate::routes::internal_error)?
     .ok_or((StatusCode::NOT_FOUND, "Report not found or not public".to_string()))?;
 
     let mut html = report.published_html
@@ -658,7 +658,7 @@ pub async fn get_live_data(
     .bind(id)
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let mut results = Vec::new();
 
@@ -668,16 +668,10 @@ pub async fn get_live_data(
             .bind(ds.datasource_id)
             .fetch_optional(&state.db)
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            .map_err(crate::routes::internal_error)?;
 
         let fresh_data = if let Some(source) = ds_info {
-            let qr = match source.db_type.as_str() {
-                "mysql" => crate::routes::query::execute_mysql(&state, &source, &ds.sql_query).await,
-                "postgresql" => crate::routes::query::execute_postgres(&state, &source, &ds.sql_query).await,
-                "oracle" => crate::routes::query::execute_oracle(&state, &source, &ds.sql_query).await,
-                _ => Err("Unsupported db type".to_string()),
-            };
-            match qr {
+            match crate::routes::query::execute_validated(&state, &source, &ds.sql_query).await {
                 Ok(result) => serde_json::to_value(&result.rows).unwrap_or(serde_json::Value::Array(vec![])),
                 Err(_) => ds.result_cache.clone().unwrap_or(serde_json::Value::Array(vec![])),
             }
@@ -710,13 +704,13 @@ pub async fn update_refresh_interval(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let report = sqlx::query_as::<_, Report>("SELECT * FROM reports WHERE id = ?")
         .bind(id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(report))
 }
@@ -734,13 +728,13 @@ pub async fn update_style(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let report = sqlx::query_as::<_, Report>("SELECT * FROM reports WHERE id = ?")
         .bind(id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(report))
 }
@@ -825,7 +819,7 @@ pub async fn list_versions(
     .bind(id)
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(versions))
 }
@@ -842,7 +836,7 @@ pub async fn get_version_html(
     .bind(version_id)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     match html {
         Some((content,)) => Ok(axum::response::Html(localize_report_html(&content))),
@@ -862,7 +856,7 @@ pub async fn delete_version(
     .bind(version_id)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Version not found".to_string()));
@@ -883,7 +877,7 @@ pub async fn restore_version(
     .bind(version_id)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let content = html.ok_or((StatusCode::NOT_FOUND, "Version not found".to_string()))?.0;
 
@@ -892,13 +886,13 @@ pub async fn restore_version(
         .bind(report_id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let report = sqlx::query_as::<_, Report>("SELECT * FROM reports WHERE id = ?")
         .bind(report_id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(report))
 }

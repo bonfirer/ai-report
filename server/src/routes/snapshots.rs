@@ -20,7 +20,7 @@ pub async fn list_schedules(
     )
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(schedules))
 }
@@ -36,7 +36,7 @@ pub async fn get_schedule(
     .bind(metric_id)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(crate::routes::internal_error)?
     .ok_or((StatusCode::NOT_FOUND, "Schedule not found".to_string()))?;
 
     Ok(Json(schedule))
@@ -52,7 +52,7 @@ pub async fn create_schedule(
         .bind(payload.metric_pool_id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Metric pool not found".to_string()))?;
 
     // Validate schedule_type
@@ -88,7 +88,7 @@ pub async fn create_schedule(
     .bind(&next_run)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let schedule = sqlx::query_as::<_, MetricSnapshotSchedule>(
         "SELECT * FROM metric_snapshot_schedules WHERE metric_pool_id = ?",
@@ -96,7 +96,7 @@ pub async fn create_schedule(
     .bind(payload.metric_pool_id)
     .fetch_one(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok((StatusCode::CREATED, Json(schedule)))
 }
@@ -113,7 +113,7 @@ pub async fn update_schedule(
     .bind(id)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(crate::routes::internal_error)?
     .ok_or((StatusCode::NOT_FOUND, "Schedule not found".to_string()))?;
 
     let schedule_type = payload.schedule_type.as_deref().unwrap_or(&existing.schedule_type);
@@ -138,7 +138,7 @@ pub async fn update_schedule(
     .bind(id)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let schedule = sqlx::query_as::<_, MetricSnapshotSchedule>(
         "SELECT * FROM metric_snapshot_schedules WHERE id = ?",
@@ -146,7 +146,7 @@ pub async fn update_schedule(
     .bind(id)
     .fetch_one(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(schedule))
 }
@@ -160,7 +160,7 @@ pub async fn delete_schedule(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Schedule not found".to_string()));
@@ -203,7 +203,7 @@ pub async fn list_snapshots(
         .fetch_all(&state.db)
         .await
     }
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(snapshots))
 }
@@ -229,7 +229,7 @@ pub async fn compare_snapshots(
     .bind(&params.current_key)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let previous = sqlx::query_as::<_, MetricSnapshot>(
         "SELECT * FROM metric_snapshots WHERE metric_pool_id = ? AND period_type = ? AND period_key = ? ORDER BY snapshot_at DESC LIMIT 1",
@@ -239,7 +239,7 @@ pub async fn compare_snapshots(
     .bind(&params.previous_key)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(SnapshotComparison {
         current,
@@ -259,30 +259,23 @@ pub async fn take_snapshot(
         .bind(metric_id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Metric not found".to_string()))?;
 
     let ds = sqlx::query_as::<_, DataSource>("SELECT * FROM datasources WHERE id = ?")
         .bind(metric.datasource_id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Data source not found".to_string()))?;
 
-    // Validate and execute the SQL
-    query::validate_sql(&metric.sql_query)
+    // Validate + execute with shared safety guards (timeout + row cap).
+    let qr = query::execute_validated(&state, &ds, &metric.sql_query)
+        .await
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
-    let qr = match ds.db_type.as_str() {
-        "mysql" => query::execute_mysql(&state, &ds, &metric.sql_query).await,
-        "postgresql" => query::execute_postgres(&state, &ds, &metric.sql_query).await,
-        "oracle" => query::execute_oracle(&state, &ds, &metric.sql_query).await,
-        other => Err(format!("Unsupported database type: {}", other)),
-    }
-    .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-
     let result_data = serde_json::to_value(&qr.rows)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let now = chrono::Utc::now();
     let period_type = "daily";
@@ -295,7 +288,7 @@ pub async fn take_snapshot(
     .bind(metric_id)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(crate::routes::internal_error)?
     .unwrap_or(0);
 
     let insert_result = sqlx::query(
@@ -310,7 +303,7 @@ pub async fn take_snapshot(
     .bind(qr.row_count as i32)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let snapshot = sqlx::query_as::<_, MetricSnapshot>(
         "SELECT * FROM metric_snapshots WHERE id = ?",
@@ -318,7 +311,7 @@ pub async fn take_snapshot(
     .bind(insert_result.last_insert_id() as i32)
     .fetch_one(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok((StatusCode::CREATED, Json(snapshot)))
 }
@@ -332,7 +325,7 @@ pub async fn delete_snapshot(
         .bind(snapshot_id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Snapshot not found".to_string()));

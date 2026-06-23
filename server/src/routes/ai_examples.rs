@@ -17,7 +17,7 @@ pub async fn list(
     )
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(examples))
 }
@@ -33,7 +33,7 @@ pub async fn list_by_datasource(
     .bind(ds_id)
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(examples))
 }
@@ -54,13 +54,13 @@ pub async fn create(
     .bind(category)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let entry = sqlx::query_as::<_, AiExample>("SELECT * FROM ai_examples WHERE id = ?")
         .bind(result.last_insert_id() as i32)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok((StatusCode::CREATED, Json(entry)))
 }
@@ -74,7 +74,7 @@ pub async fn delete(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(StatusCode::NO_CONTENT)
 }

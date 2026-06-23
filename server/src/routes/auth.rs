@@ -36,7 +36,9 @@ fn login_attempts() -> &'static Mutex<HashMap<String, AttemptRecord>> {
 
 /// Returns Err with seconds-remaining if the username is currently locked out.
 fn check_rate_limit(username: &str) -> Result<(), u64> {
-    let map = login_attempts().lock().unwrap();
+    // Recover from a poisoned lock instead of panicking: a single panic while
+    // holding the lock must not permanently break authentication.
+    let map = login_attempts().lock().unwrap_or_else(|e| e.into_inner());
     if let Some(rec) = map.get(username) {
         if rec.window_start.elapsed() < LOCKOUT_WINDOW && rec.failures >= MAX_FAILED_ATTEMPTS {
             let remaining = LOCKOUT_WINDOW.as_secs().saturating_sub(rec.window_start.elapsed().as_secs());
@@ -47,7 +49,7 @@ fn check_rate_limit(username: &str) -> Result<(), u64> {
 }
 
 fn record_failure(username: &str) {
-    let mut map = login_attempts().lock().unwrap();
+    let mut map = login_attempts().lock().unwrap_or_else(|e| e.into_inner());
     let rec = map.entry(username.to_string()).or_insert(AttemptRecord {
         failures: 0,
         window_start: Instant::now(),
@@ -61,7 +63,10 @@ fn record_failure(username: &str) {
 }
 
 fn clear_failures(username: &str) {
-    login_attempts().lock().unwrap().remove(username);
+    login_attempts()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(username);
 }
 
 /// Read the JWT signing secret from the environment.
@@ -71,8 +76,10 @@ pub fn jwt_secret() -> String {
     std::env::var("JWT_SECRET").unwrap_or_default()
 }
 
-/// Validate a bearer token and return the user id (`sub` claim) on success.
-pub fn validate_token(token: &str) -> Result<i32, ()> {
+/// Decode a JWT and return `(user_id, scope)` if the signature and expiry are
+/// valid. `scope` is `None` for full session tokens, `Some("embed")` for the
+/// short-lived read-only tokens used by report iframes.
+fn decode_claims(token: &str) -> Result<(i32, Option<String>), ()> {
     let secret = jwt_secret();
     if secret.is_empty() {
         return Err(());
@@ -88,7 +95,75 @@ pub fn validate_token(token: &str) -> Result<i32, ()> {
     if user_id <= 0 {
         return Err(());
     }
-    Ok(user_id)
+    let scope = data
+        .claims
+        .get("scope")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    Ok((user_id, scope))
+}
+
+/// Validate a full-session bearer token and return the user id.
+///
+/// Narrowly-scoped embed tokens are REJECTED here, so a leaked embed token
+/// (which may travel through URLs, browser history, and access logs) can never
+/// be used against admin/mutation routes — only the report iframe endpoints.
+pub fn validate_token(token: &str) -> Result<i32, ()> {
+    let (user_id, scope) = decode_claims(token)?;
+    match scope.as_deref() {
+        Some("embed") => Err(()),
+        _ => Ok(user_id),
+    }
+}
+
+/// Validate a token for the report iframe endpoints (`/html`, `/data`).
+/// Accepts either a full session token or a short-lived embed token.
+pub fn validate_embed_or_session(token: &str) -> Result<i32, ()> {
+    decode_claims(token).map(|(user_id, _)| user_id)
+}
+
+/// Mint a short-lived, read-only token for embedding report data into iframes.
+/// Lifetime is intentionally short and the token is scope-limited so it cannot
+/// reach any endpoint other than the report html/data readers.
+pub fn create_embed_token(user_id: i32) -> Result<String, ()> {
+    let secret = jwt_secret();
+    if secret.is_empty() {
+        return Err(());
+    }
+    let claims = serde_json::json!({
+        "sub": user_id,
+        "scope": "embed",
+        "exp": chrono::Utc::now().timestamp() + EMBED_TOKEN_TTL_SECS,
+    });
+    jsonwebtoken::encode(
+        &jsonwebtoken::Header::default(),
+        &claims,
+        &jsonwebtoken::EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .map_err(|_| ())
+}
+
+/// Lifetime of an embed token (30 minutes).
+const EMBED_TOKEN_TTL_SECS: i64 = 60 * 30;
+
+/// `GET /api/embed-token` — issue a short-lived embed token for the current
+/// user. The `require_auth` middleware has already verified a valid full
+/// session token in the `Authorization` header.
+pub async fn embed_token(
+    headers: axum::http::HeaderMap,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let user_id = headers
+        .get("Authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .and_then(|t| validate_token(t).ok())
+        .ok_or((StatusCode::UNAUTHORIZED, "Unauthorized".to_string()))?;
+
+    let token = create_embed_token(user_id).map_err(|_| internal("embed token encode failed"))?;
+    Ok(Json(serde_json::json!({
+        "token": token,
+        "expires_in": EMBED_TOKEN_TTL_SECS,
+    })))
 }
 
 /// Axum middleware: require a valid `Authorization: Bearer <jwt>` header.
@@ -122,7 +197,7 @@ pub async fn require_auth_flexible(
         .get("Authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
-        .map(|t| validate_token(t).is_ok())
+        .map(|t| validate_embed_or_session(t).is_ok())
         .unwrap_or(false);
 
     if header_ok {
@@ -135,7 +210,7 @@ pub async fn require_auth_flexible(
         .query()
         .map(|q| {
             url_decode_token(q)
-                .map(|t| validate_token(&t).is_ok())
+                .map(|t| validate_embed_or_session(&t).is_ok())
                 .unwrap_or(false)
         })
         .unwrap_or(false);

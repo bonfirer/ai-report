@@ -19,7 +19,7 @@ pub async fn list(
     .bind(ds_id)
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(items))
 }
@@ -38,7 +38,7 @@ pub async fn upsert(
             .bind(&payload.table_name)
             .execute(&state.db)
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            .map_err(crate::routes::internal_error)?;
         return Ok(Json(serde_json::json!({ "status": "deleted" })));
     }
 
@@ -52,7 +52,7 @@ pub async fn upsert(
     .bind(payload.description.trim())
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(serde_json::json!({ "status": "ok" })))
 }
@@ -70,7 +70,7 @@ pub async fn list_columns(
     .bind(ds_id)
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(items))
 }
@@ -89,7 +89,7 @@ pub async fn upsert_column(
             .bind(&payload.column_name)
             .execute(&state.db)
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            .map_err(crate::routes::internal_error)?;
         return Ok(Json(serde_json::json!({ "status": "deleted" })));
     }
 
@@ -104,7 +104,7 @@ pub async fn upsert_column(
     .bind(payload.description.trim())
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(serde_json::json!({ "status": "ok" })))
 }

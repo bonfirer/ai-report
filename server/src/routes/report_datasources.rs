@@ -20,7 +20,7 @@ pub async fn list(
     .bind(report_id)
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(items))
 }
@@ -38,7 +38,7 @@ pub async fn create(
                 .bind(mid)
                 .fetch_optional(&state.db)
                 .await
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+                .map_err(crate::routes::internal_error)?;
             match metric {
                 Some(m) => (m.result_cache, m.row_count),
                 None => (None, None),
@@ -59,7 +59,7 @@ pub async fn create(
     .bind(row_count)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let item = sqlx::query_as::<_, ReportDataSource>(
         "SELECT * FROM report_datasources WHERE id = ?",
@@ -67,7 +67,7 @@ pub async fn create(
     .bind(result.last_insert_id() as i32)
     .fetch_one(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok((StatusCode::CREATED, Json(item)))
 }
@@ -82,7 +82,7 @@ pub async fn remove(
         .bind(report_id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Report datasource not found".to_string()));
@@ -103,7 +103,7 @@ pub async fn refresh(
     .bind(report_id)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(crate::routes::internal_error)?
     .ok_or((StatusCode::NOT_FOUND, "Not found".to_string()))?;
 
     query::validate_sql(&item.sql_query)
@@ -113,16 +113,12 @@ pub async fn refresh(
         .bind(item.datasource_id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Data source not found".to_string()))?;
 
-    let qr = match ds.db_type.as_str() {
-        "mysql" => query::execute_mysql(&state, &ds, &item.sql_query).await,
-        "postgresql" => query::execute_postgres(&state, &ds, &item.sql_query).await,
-        "oracle" => query::execute_oracle(&state, &ds, &item.sql_query).await,
-        other => Err(format!("Unsupported: {}", other)),
-    }
-    .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    let qr = query::execute_validated(&state, &ds, &item.sql_query)
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
     let cache = serde_json::to_value(&qr.rows).ok();
 
@@ -132,7 +128,7 @@ pub async fn refresh(
         .bind(ds_id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let updated = sqlx::query_as::<_, ReportDataSource>(
         "SELECT * FROM report_datasources WHERE id = ?",
@@ -140,7 +136,7 @@ pub async fn refresh(
     .bind(ds_id)
     .fetch_one(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(updated))
 }

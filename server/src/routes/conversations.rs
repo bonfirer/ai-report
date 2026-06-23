@@ -16,7 +16,7 @@ pub async fn list(
     )
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(convs))
 }
@@ -28,13 +28,13 @@ pub async fn create(
         .bind("New Conversation")
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let conv = sqlx::query_as::<_, Conversation>("SELECT * FROM conversations WHERE id = ?")
         .bind(result.last_insert_id() as i32)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok((StatusCode::CREATED, Json(conv)))
 }
@@ -49,7 +49,7 @@ pub async fn get_messages(
     .bind(id)
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(messages))
 }
@@ -66,7 +66,7 @@ pub async fn get_status(
     .bind(id)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(crate::routes::internal_error)?
     .ok_or((StatusCode::NOT_FOUND, "Conversation not found".to_string()))?;
 
     Ok(Json(serde_json::json!({
@@ -83,7 +83,7 @@ pub async fn delete(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Conversation not found".to_string()));

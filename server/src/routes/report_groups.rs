@@ -16,7 +16,7 @@ pub async fn list(
     )
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(groups))
 }
@@ -32,13 +32,13 @@ pub async fn create(
     .bind(&payload.description)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let group = sqlx::query_as::<_, ReportGroup>("SELECT * FROM report_groups WHERE id = ?")
         .bind(result.last_insert_id() as i32)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok((StatusCode::CREATED, Json(group)))
 }
@@ -52,7 +52,7 @@ pub async fn update(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Group not found".to_string()))?;
 
     sqlx::query("UPDATE report_groups SET name=?, description=?, sort_order=? WHERE id=?")
@@ -62,13 +62,13 @@ pub async fn update(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let group = sqlx::query_as::<_, ReportGroup>("SELECT * FROM report_groups WHERE id = ?")
         .bind(id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(group))
 }
@@ -82,13 +82,13 @@ pub async fn remove(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let result = sqlx::query("DELETE FROM report_groups WHERE id = ?")
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Group not found".to_string()));
@@ -108,7 +108,7 @@ pub async fn move_report(
         .bind(report_id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Report not found".to_string()));
@@ -118,7 +118,7 @@ pub async fn move_report(
         .bind(report_id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(report))
 }

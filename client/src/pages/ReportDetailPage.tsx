@@ -11,10 +11,13 @@ import {
   type Report, type ReportDataSource, type MetricPool, type MetricGroup,
 } from '../lib/api';
 import { ErrorBanner } from '../components/ui';
+import { fetchEmbedToken, getCachedEmbedToken } from '../lib/embedToken';
 
-/// Build a report HTML/data URL with the auth token appended (for iframe loading).
+/// Build a report HTML/data URL with an auth token appended (for iframe loading).
+/// Prefers a short-lived embed token so the long-lived session JWT never lands
+/// in a URL; falls back to the session token if the embed token isn't ready.
 function withToken(path: string): string {
-  const token = localStorage.getItem('token') || '';
+  const token = getCachedEmbedToken() || localStorage.getItem('token') || '';
   const sep = path.includes('?') ? '&' : '?';
   return `${path}${sep}token=${encodeURIComponent(token)}`;
 }
@@ -47,6 +50,19 @@ export default function ReportDetailPage() {
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Mint a short-lived embed token on mount, then nudge a re-render so the
+  // iframe src is rebuilt using it instead of the session JWT.
+  const [, setEmbedTick] = useState(0);
+  useEffect(() => {
+    let active = true;
+    fetchEmbedToken().then(() => {
+      if (active) setEmbedTick((n) => n + 1);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Stop polling helper
   const stopPolling = useCallback(() => {
@@ -84,6 +100,7 @@ export default function ReportDetailPage() {
           if (fresh) setReport(fresh);
           refreshVersion(reportId);
           if (iframeRef.current) {
+            await fetchEmbedToken();
             iframeRef.current.src = withToken(`/api/reports/${reportId}/html?t=${Date.now()}`);
           }
         } else if (st.status === 'failed') {
@@ -260,6 +277,7 @@ export default function ReportDetailPage() {
     if (updated) {
       setReport(updated);
       refreshVersion(report.id);
+      await fetchEmbedToken();
       if (iframeRef.current) iframeRef.current.src = withToken(`/api/reports/${report.id}/html?t=${Date.now()}`);
       setToast(t('reportDetail.rollbackSuccess'));
       setTimeout(() => setToast(null), 3000);

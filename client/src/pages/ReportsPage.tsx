@@ -5,6 +5,7 @@ import { ChartBar, Trash, ArrowRight, Clock, ChatCircle } from '@phosphor-icons/
 import { reportsApi } from '../lib/api';
 import type { Report } from '../lib/types';
 import { PageHeader, ErrorBanner, EmptyState } from '../components/ui';
+import { fetchEmbedToken } from '../lib/embedToken';
 
 export default function ReportsPage() {
   const { t } = useTranslation();
@@ -248,6 +249,7 @@ function ReportCardStatusDot({ report }: { report: Report }) {
 function LazyReportPreview({ report }: { report: Report }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -265,11 +267,28 @@ function LazyReportPreview({ report }: { report: Report }) {
     return () => observer.disconnect();
   }, []);
 
+  // Once visible, mint a short-lived embed token (cached/shared across cards)
+  // rather than putting the long-lived session JWT in the iframe URL.
+  useEffect(() => {
+    if (!visible) return;
+    let active = true;
+    fetchEmbedToken().then((embed) => {
+      if (!active) return;
+      const token = embed || localStorage.getItem('token') || '';
+      setSrc(
+        `/api/reports/${report.id}/html?preview=1&token=${encodeURIComponent(token)}&t=${report.updated_at || ''}`
+      );
+    });
+    return () => {
+      active = false;
+    };
+  }, [visible, report.id, report.updated_at]);
+
   return (
     <div ref={containerRef} className="w-full h-full bg-obsidian-800">
-      {visible ? (
+      {src ? (
         <iframe
-          src={`/api/reports/${report.id}/html?preview=1&token=${encodeURIComponent(localStorage.getItem('token') || '')}&t=${report.updated_at || ''}`}
+          src={src}
           className="w-full h-full border-0 pointer-events-none"
           style={{ transform: 'scale(0.35)', transformOrigin: 'top left', width: '286%', height: '286%' }}
           tabIndex={-1}

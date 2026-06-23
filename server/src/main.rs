@@ -210,6 +210,8 @@ async fn main() {
         .route("/api/ai-examples/datasource/{ds_id}", get(routes::ai_examples::list_by_datasource))
         // Achievements
         .route("/api/achievements", get(routes::achievements::list))
+        // Short-lived, read-only token for embedding reports in iframes.
+        .route("/api/embed-token", get(routes::auth::embed_token))
         // All routes above require a valid JWT.
         .route_layer(axum::middleware::from_fn(routes::auth::require_auth));
 

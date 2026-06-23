@@ -17,7 +17,7 @@ pub async fn list(
     )
     .fetch_all(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(metrics))
 }
@@ -30,7 +30,7 @@ pub async fn get_one(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Metric not found".to_string()))?;
 
     Ok(Json(metric))
@@ -47,7 +47,7 @@ pub async fn create(
                 .bind(source_id)
                 .fetch_optional(&state.db)
                 .await
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+                .map_err(crate::routes::internal_error)?;
             match pool {
                 Some(p) => (p.result_cache, p.row_count),
                 None => (None, None),
@@ -69,13 +69,13 @@ pub async fn create(
     .bind(payload.source_pool_id)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let metric = sqlx::query_as::<_, MetricPool>("SELECT * FROM metric_pools WHERE id = ?")
         .bind(result.last_insert_id() as i32)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok((StatusCode::CREATED, Json(metric)))
 }
@@ -89,7 +89,7 @@ pub async fn update(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Metric not found".to_string()))?;
 
     sqlx::query("UPDATE metric_pools SET name=?, description=?, sql_query=?, group_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?")
@@ -100,13 +100,13 @@ pub async fn update(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let metric = sqlx::query_as::<_, MetricPool>("SELECT * FROM metric_pools WHERE id = ?")
         .bind(id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(metric))
 }
@@ -119,7 +119,7 @@ pub async fn remove(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Metric not found".to_string()));
@@ -137,7 +137,7 @@ pub async fn refresh(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Metric not found".to_string()))?;
 
     // Validate SQL
@@ -148,16 +148,12 @@ pub async fn refresh(
         .bind(metric.datasource_id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Data source not found".to_string()))?;
 
-    let qr = match ds.db_type.as_str() {
-        "mysql" => query::execute_mysql(&state, &ds, &metric.sql_query).await,
-        "postgresql" => query::execute_postgres(&state, &ds, &metric.sql_query).await,
-        "oracle" => query::execute_oracle(&state, &ds, &metric.sql_query).await,
-        other => Err(format!("Unsupported database type: {}", other)),
-    }
-    .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    let qr = query::execute_validated(&state, &ds, &metric.sql_query)
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
     let cache = serde_json::to_value(&qr.rows).ok();
 
@@ -167,13 +163,13 @@ pub async fn refresh(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let updated = sqlx::query_as::<_, MetricPool>("SELECT * FROM metric_pools WHERE id = ?")
         .bind(id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(updated))
 }
@@ -189,7 +185,7 @@ pub async fn move_metric(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Metric not found".to_string()));
@@ -199,7 +195,7 @@ pub async fn move_metric(
         .bind(id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(metric))
 }

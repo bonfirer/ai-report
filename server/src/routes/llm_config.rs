@@ -14,7 +14,7 @@ pub async fn get_config(
     let config = sqlx::query_as::<_, LLMConfig>("SELECT * FROM llm_config WHERE id = 1")
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "LLM config not initialized".to_string()))?;
 
     Ok(Json(mask_config(config)))
@@ -27,7 +27,7 @@ pub async fn update_config(
     let existing = sqlx::query_as::<_, LLMConfig>("SELECT * FROM llm_config WHERE id = 1")
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "LLM config not initialized".to_string()))?;
 
     sqlx::query(
@@ -46,12 +46,12 @@ pub async fn update_config(
     .bind(payload.temperature.unwrap_or(existing.temperature))
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let config = sqlx::query_as::<_, LLMConfig>("SELECT * FROM llm_config WHERE id = 1")
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(mask_config(config)))
 }
@@ -85,7 +85,7 @@ pub async fn test_connection(
     let config = sqlx::query_as::<_, LLMConfig>("SELECT * FROM llm_config WHERE id = 1")
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "LLM config not initialized".to_string()))?;
 
     let client = reqwest::Client::new();

@@ -25,13 +25,13 @@ pub async fn create(
     .bind(&payload.password)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let ds = sqlx::query_as::<_, DataSource>("SELECT * FROM datasources WHERE id = ?")
         .bind(result.last_insert_id() as i32)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok((StatusCode::CREATED, Json(ds)))
 }
@@ -42,7 +42,7 @@ pub async fn list(
     let sources = sqlx::query_as::<_, DataSource>("SELECT * FROM datasources ORDER BY created_at DESC")
         .fetch_all(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(sources))
 }
@@ -55,7 +55,7 @@ pub async fn get_one(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Data source not found".to_string()))?;
 
     Ok(Json(ds))
@@ -70,7 +70,7 @@ pub async fn update(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Data source not found".to_string()))?;
 
     sqlx::query(
@@ -85,7 +85,7 @@ pub async fn update(
     .bind(id)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     // Evict cached pool — credentials may have changed
     state.pool_cache.evict(id).await;
@@ -94,7 +94,7 @@ pub async fn update(
         .bind(id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(ds))
 }
@@ -107,7 +107,7 @@ pub async fn remove(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Data source not found".to_string()));
@@ -127,7 +127,7 @@ pub async fn test_connection(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Data source not found".to_string()))?;
 
     let result = match ds.db_type.as_str() {
@@ -165,7 +165,7 @@ pub async fn introspect(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Data source not found".to_string()))?;
 
     let schema = match ds.db_type.as_str() {
@@ -178,7 +178,7 @@ pub async fn introspect(
 
     // Save schema
     let schema_json = serde_json::to_value(&schema)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     sqlx::query(
         "INSERT INTO `schemas` (datasource_id, schema_data) VALUES (?, ?)
@@ -188,7 +188,7 @@ pub async fn introspect(
     .bind(&schema_json)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     // Auto-profile columns in background
     let state_clone = state.clone();
@@ -213,12 +213,12 @@ pub async fn get_schema(
             .bind(id)
             .fetch_optional(&state.db)
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            .map_err(crate::routes::internal_error)?;
 
     match row {
         Some((data,)) => {
             let schema: SchemaInfo = serde_json::from_value(data)
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+                .map_err(crate::routes::internal_error)?;
             Ok(Json(schema))
         }
         None => Err((StatusCode::NOT_FOUND, "Schema not found. Run introspection first.".to_string())),
@@ -234,7 +234,7 @@ pub async fn profile(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Data source not found".to_string()))?;
 
     let count = crate::column_profiler::profile_datasource(&state, &ds)

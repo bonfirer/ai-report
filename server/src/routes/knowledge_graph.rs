@@ -17,12 +17,12 @@ pub async fn get_graph(
             .bind(ds_id)
             .fetch_optional(&state.db)
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            .map_err(crate::routes::internal_error)?;
 
     match row {
         Some((data,)) => {
             let graph: KnowledgeGraph = serde_json::from_value(data)
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+                .map_err(crate::routes::internal_error)?;
             Ok(Json(graph))
         }
         None => Err((StatusCode::NOT_FOUND, "Knowledge graph not found. Run introspection first.".to_string())),
@@ -39,12 +39,12 @@ pub async fn refresh_graph(
             .bind(ds_id)
             .fetch_optional(&state.db)
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            .map_err(crate::routes::internal_error)?;
 
     let schema_data = row.ok_or((StatusCode::NOT_FOUND, "Schema not found. Run introspection first.".to_string()))?;
 
     let schema: SchemaInfo = serde_json::from_value(schema_data.0)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     // Build knowledge graph from schema
     let nodes: Vec<GraphNode> = schema
@@ -70,7 +70,7 @@ pub async fn refresh_graph(
 
     let graph = KnowledgeGraph { nodes, edges };
     let graph_json = serde_json::to_value(&graph)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     sqlx::query(
         "INSERT INTO knowledge_graphs (datasource_id, graph_data) VALUES (?, ?)
@@ -80,7 +80,7 @@ pub async fn refresh_graph(
     .bind(&graph_json)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(graph))
 }

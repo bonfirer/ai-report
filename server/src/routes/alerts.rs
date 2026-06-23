@@ -27,7 +27,7 @@ pub async fn get_smtp(
     let cfg = sqlx::query_as::<_, SmtpConfig>("SELECT * FROM smtp_config WHERE id = 1")
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let value = match cfg {
         Some(c) => {
@@ -61,7 +61,7 @@ pub async fn update_smtp(
     let existing = sqlx::query_as::<_, SmtpConfig>("SELECT * FROM smtp_config WHERE id = 1")
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     let base = existing.unwrap_or(SmtpConfig {
         id: 1,
@@ -107,7 +107,7 @@ pub async fn update_smtp(
     .bind(enabled)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     get_smtp(State(state)).await
 }
@@ -125,7 +125,7 @@ pub async fn test_smtp(
     let cfg = sqlx::query_as::<_, SmtpConfig>("SELECT * FROM smtp_config WHERE id = 1")
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::BAD_REQUEST, "SMTP not configured".to_string()))?;
 
     let body = "<div style=\"font-family:Arial,sans-serif;padding:16px;\"><h2>✅ SMTP 测试成功</h2><p>如果你收到这封邮件，说明 AI Report 的邮件预警通道已正常工作。</p></div>";
@@ -151,7 +151,7 @@ pub async fn list_rules(
     let rules = sqlx::query_as::<_, AlertRule>("SELECT * FROM alert_rules ORDER BY created_at DESC")
         .fetch_all(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
     Ok(Json(rules))
 }
 
@@ -163,7 +163,7 @@ pub async fn get_rule(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Alert rule not found".to_string()))?;
     Ok(Json(rule))
 }
@@ -177,7 +177,7 @@ pub async fn create_rule(
         .bind(payload.metric_pool_id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Metric pool not found".to_string()))?;
 
     if !VALID_OPERATORS.contains(&payload.operator.as_str()) {
@@ -213,13 +213,13 @@ pub async fn create_rule(
     .bind(next_run)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let rule = sqlx::query_as::<_, AlertRule>("SELECT * FROM alert_rules WHERE id = ?")
         .bind(result.last_insert_id() as i32)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok((StatusCode::CREATED, Json(rule)))
 }
@@ -233,7 +233,7 @@ pub async fn update_rule(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Alert rule not found".to_string()))?;
 
     let name = payload.name.unwrap_or(existing.name);
@@ -285,13 +285,13 @@ pub async fn update_rule(
     .bind(id)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     let rule = sqlx::query_as::<_, AlertRule>("SELECT * FROM alert_rules WHERE id = ?")
         .bind(id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
 
     Ok(Json(rule))
 }
@@ -304,7 +304,7 @@ pub async fn delete_rule(
         .bind(id)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(crate::routes::internal_error)?;
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Alert rule not found".to_string()));
     }
@@ -320,7 +320,7 @@ pub async fn trigger_rule(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Alert rule not found".to_string()))?;
 
     match alert_engine::run_alert(&state, &rule, false).await {
@@ -353,7 +353,7 @@ pub async fn test_rule(
         .bind(id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Alert rule not found".to_string()))?;
 
     // Override recipients for this test, if provided.
@@ -394,13 +394,13 @@ pub async fn generate_template(
         .bind(payload.metric_pool_id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Metric pool not found".to_string()))?;
 
     let llm_cfg = sqlx::query_as::<_, LLMConfig>("SELECT * FROM llm_config WHERE id = 1")
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::BAD_REQUEST, "LLM not configured".to_string()))?;
 
     if llm_cfg.api_key.is_empty() {
@@ -487,7 +487,7 @@ pub async fn list_logs(
             .fetch_all(&state.db)
             .await
     }
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(crate::routes::internal_error)?;
 
     Ok(Json(logs))
 }

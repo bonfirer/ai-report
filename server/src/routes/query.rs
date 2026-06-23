@@ -193,7 +193,7 @@ pub async fn execute(
         .bind(req.datasource_id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Data source not found".to_string()))?;
 
     // Validate + execute with shared safety guards (timeout + row cap).
@@ -262,7 +262,7 @@ pub async fn get_pool(
         .bind(pool_id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::NOT_FOUND, "Data pool not found".to_string()))?;
 
     Ok(Json(pool))

@@ -456,12 +456,8 @@ async fn handle_chat_inner(
                     }
                 }
 
-                let result = match ds.db_type.as_str() {
-                    "mysql" => query::execute_mysql(state, &ds, &current_sql).await,
-                    "postgresql" => query::execute_postgres(state, &ds, &current_sql).await,
-                    "oracle" => query::execute_oracle(state, &ds, &current_sql).await,
-                    other => Err(format!("Unsupported database type: {}", other)),
-                };
+                // Execute with shared safety guards (validation + timeout + row cap).
+                let result = query::execute_validated(state, &ds, &current_sql).await;
 
                 match result {
                     Ok(qr) => {
