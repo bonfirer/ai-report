@@ -1,6 +1,6 @@
 <div align="center">
 
-# AI Report Platform
+# LingxiBI
 
 **Connect your databases, talk to your data, and let AI build the dashboards.**
 
@@ -31,7 +31,7 @@
 
 ## 💡 Overview
 
-**AI Report Platform** turns a raw database into shareable, interactive dashboards — without writing SQL or wiring up a BI tool. Connect MySQL, PostgreSQL, or Oracle, then:
+**LingxiBI** (灵犀 — "intuitive understanding") turns a raw database into shareable, interactive dashboards — without writing SQL or wiring up a BI tool. Connect MySQL, PostgreSQL, or Oracle, then:
 
 - **Ask in plain language** and the assistant writes & runs read-only SQL for you.
 - **Curate a metrics library** that doubles as a knowledge base, grounding the AI in your business definitions.
@@ -69,7 +69,7 @@ Try it without installing anything:
 
 ## 🧠 How it learns
 
-Most text-to-SQL tools forget everything between questions. AI Report instead **accumulates business knowledge about your specific database** and feeds it back into every answer — so it gets sharper the more your team uses it. This compounding, per-datasource memory is what sets the platform apart from a raw "ask-a-model" wrapper.
+Most text-to-SQL tools forget everything between questions. LingxiBI instead **accumulates business knowledge about your specific database** and feeds it back into every answer — so it gets sharper the more your team uses it. This compounding, per-datasource memory is what sets the platform apart from a raw "ask-a-model" wrapper.
 
 ```
   You ─ ask / 👍 like ─▶  Conversation

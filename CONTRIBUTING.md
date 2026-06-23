@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in improving the AI Report Platform!
+Thanks for your interest in improving LingxiBI!
 
 ## Getting started
 

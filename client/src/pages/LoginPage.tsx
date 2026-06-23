@@ -247,7 +247,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
               <Sparkle size={28} className="text-[#08080c]" weight="fill" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-gray-50 mt-5 tracking-tight">AI Report Platform</h1>
+          <h1 className="text-2xl font-bold text-gray-50 mt-5 tracking-tight">LingxiBI</h1>
           <p className="text-[11px] text-gray-500 mt-1.5">
             {isSetup ? t('login.setupHint') : t('login.hint')}
           </p>

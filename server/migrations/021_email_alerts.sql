@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS smtp_config (
     username    VARCHAR(255) NOT NULL DEFAULT '',
     password    VARCHAR(255) NOT NULL DEFAULT '',
     from_email  VARCHAR(255) NOT NULL DEFAULT '',
-    from_name   VARCHAR(255) NOT NULL DEFAULT 'AI Report',
+    from_name   VARCHAR(255) NOT NULL DEFAULT 'LingxiBI',
     use_tls     TINYINT(1) NOT NULL DEFAULT 1,
     enabled     TINYINT(1) NOT NULL DEFAULT 0,
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS smtp_config (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Seed the single config row
-INSERT INTO smtp_config (id, host, port, from_name) VALUES (1, '', 465, 'AI Report')
+INSERT INTO smtp_config (id, host, port, from_name) VALUES (1, '', 465, 'LingxiBI')
 ON DUPLICATE KEY UPDATE id = id;
 
 -- Alert rules: evaluate a metric on a schedule and email when a condition holds

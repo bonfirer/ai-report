@@ -2,7 +2,7 @@
 set -e
 
 # ============================================
-# One-time server provisioning for AI Report Platform
+# One-time server provisioning for LingxiBI
 # Run ON the server (as root or with sudo):
 #   bash setup-server.sh [domain] [email]
 #

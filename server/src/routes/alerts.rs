@@ -46,7 +46,7 @@ pub async fn get_smtp(
         }
         None => serde_json::json!({
             "id": 1, "host": "", "port": 465, "username": "",
-            "password_set": false, "from_email": "", "from_name": "AI Report",
+            "password_set": false, "from_email": "", "from_name": "LingxiBI",
             "use_tls": true, "enabled": false,
         }),
     };
@@ -70,7 +70,7 @@ pub async fn update_smtp(
         username: String::new(),
         password: String::new(),
         from_email: String::new(),
-        from_name: "AI Report".to_string(),
+        from_name: "LingxiBI".to_string(),
         use_tls: true,
         enabled: false,
         created_at: None,
@@ -128,9 +128,9 @@ pub async fn test_smtp(
         .map_err(crate::routes::internal_error)?
         .ok_or((StatusCode::BAD_REQUEST, "SMTP not configured".to_string()))?;
 
-    let body = "<div style=\"font-family:Arial,sans-serif;padding:16px;\"><h2>✅ SMTP 测试成功</h2><p>如果你收到这封邮件，说明 AI Report 的邮件预警通道已正常工作。</p></div>";
+    let body = "<div style=\"font-family:Arial,sans-serif;padding:16px;\"><h2>✅ SMTP 测试成功</h2><p>如果你收到这封邮件，说明 LingxiBI 的邮件预警通道已正常工作。</p></div>";
 
-    email::send_email(&cfg, &[payload.to.clone()], "AI Report — SMTP 测试", body, vec![])
+    email::send_email(&cfg, &[payload.to.clone()], "LingxiBI — SMTP 测试", body, vec![])
         .await
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 

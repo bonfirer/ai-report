@@ -137,7 +137,7 @@ pub async fn send_card(cfg: &FeishuConfig, card: Value) -> Result<(), String> {
 /// Send a plain-text message (used by the "test" button).
 pub async fn send_text(cfg: &FeishuConfig, text: &str) -> Result<(), String> {
     let card = build_card(
-        "✅ AI Report — 飞书测试",
+        "✅ LingxiBI — 飞书测试",
         "green",
         &[CardField {
             label: "状态".to_string(),
