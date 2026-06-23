@@ -499,6 +499,7 @@
     "resumeHint": "Click to resume this alert",
     "smtpSettings": "Email Server Settings",
     "smtpNotConfigured": "Email server not configured. Click the gear icon to set it up.",
+    "feishuSettings": "Feishu Bot Settings",
     "recentLogs": "Recent Activity",
     "triggerNow": "Run Now",
     "sendTest": "Send Test",
@@ -539,13 +540,15 @@
       "cooldown": "Cooldown (min)",
       "recipients": "Recipients",
       "includeExcel": "Attach Excel data",
+      "notifyFeishu": "Push to Feishu",
       "enabled": "Enable rule",
       "subject": "Email Subject",
       "body": "Email Body"
     },
     "validation": {
       "nameMetric": "Please enter a rule name and select a metric",
-      "recipients": "Please add at least one recipient email"
+      "recipients": "Please add at least one recipient email",
+      "channel": "Add at least one recipient email, or enable \"Push to Feishu\""
     },
     "smtp": {
       "host": "SMTP Host",
@@ -558,6 +561,15 @@
       "enabled": "Enable sending",
       "testEmail": "Send test email to",
       "testToRequired": "Please enter a test recipient email"
+    },
+    "feishu": {
+      "webhook": "Webhook URL",
+      "webhookHint": "Get it from your Feishu group: Settings → Bots → Add Custom Bot",
+      "secret": "Signing Secret (optional)",
+      "secretHint": "Fill in if the bot has the \"signed verification\" security setting enabled; leave empty to skip signing",
+      "enabled": "Enable Feishu push",
+      "testSend": "Send test card",
+      "webhookRequired": "Please enter the Webhook URL first"
     },
     "deleteConfirm": {
       "title": "Confirm Delete",

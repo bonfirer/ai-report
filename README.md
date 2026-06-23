@@ -4,7 +4,7 @@
 
 **Connect your databases, talk to your data, and let AI build the dashboards.**
 
-<sub>🤖 AI 驱动的数据分析与报表平台 · 自然语言查询 · 指标库 · 一键生成可交互看板 · 邮件预警</sub>
+<sub>🤖 AI 驱动的数据分析与报表平台 · 自然语言查询 · 指标库 · 一键生成可交互看板 · 多渠道预警（邮件 / 飞书）</sub>
 
 <br/>
 
@@ -35,8 +35,9 @@
 
 - **Ask in plain language** and the assistant writes & runs read-only SQL for you.
 - **Curate a metrics library** that doubles as a knowledge base, grounding the AI in your business definitions.
+- **Get smarter over time** — every conversation teaches the assistant your schema's business rules, and the most relevant lessons are recalled on future questions.
 - **Generate complete HTML dashboards** with a prompt, refine them conversationally, and keep a full version history.
-- **Stay informed** with scheduled snapshots and threshold-based **email alerts** that ship the data as an Excel attachment.
+- **Stay informed** with scheduled snapshots and threshold-based **alerts** — delivered to email (with the data attached as Excel) and/or pushed to **Feishu (Lark)** as an interactive card.
 
 ## 🚀 Live demo
 
@@ -60,10 +61,33 @@ Try it without installing anything:
 | 📊 | **AI dashboards** | Generate complete, responsive HTML dashboards (ECharts) from your data, refine them conversationally, and keep a full **version history** with rollback. |
 | 🔗 | **Sharing** | Publish reports via unguessable share links, with public/private control. |
 | 📸 | **Snapshots** | Schedule periodic metric snapshots for trend, YoY, and MoM comparisons. |
-| 🔔 | **Email alerts** | Set threshold rules on metrics; when triggered, an **AI-generated** email goes out on your schedule with the metric data attached as an **Excel** file. |
-| 🧠 | **Knowledge base** | Accumulates business knowledge from your conversations to ground future answers. |
+| 🔔 | **Alerts** | Set threshold rules on metrics; when triggered, an **AI-generated** email goes out on your schedule with the metric data attached as an **Excel** file. |
+| 🪶 | **Feishu / Lark** | Push the same alerts to a Feishu group as an interactive message **card** via a custom-bot webhook (with optional **HMAC-SHA256** signing). Each rule can use email, Feishu, or both. |
+| 🧠 | **Self-learning knowledge** | After every conversation it distills **new** business knowledge (field meanings, table relationships, query patterns, rules) into a per-datasource knowledge base; 👍'd answers become few-shot examples. All of it is **ranked by relevance** and fed back into future SQL generation — so it sharpens the more you use it. |
 | 🌍 | **Internationalization** | English and Chinese UI out of the box. |
 | 🔐 | **Authentication** | JWT-based auth with first-run admin setup and login rate-limiting. |
+
+## 🧠 How it learns
+
+Most text-to-SQL tools forget everything between questions. AI Report instead **accumulates business knowledge about your specific database** and feeds it back into every answer — so it gets sharper the more your team uses it. This compounding, per-datasource memory is what sets the platform apart from a raw "ask-a-model" wrapper.
+
+```
+  You ─ ask / 👍 like ─▶  Conversation
+                              │  background: extract NEW business knowledge
+                              ▼
+  Learned context (per data source)
+    • Knowledge base — field meanings · relations · rules · query patterns
+    • 👍 Few-shot examples
+    • Curated metrics library
+                              │  relevance-ranked + token-budgeted
+                              ▼
+  Grounded SQL generation ─▶  better answers, the more you use it
+```
+
+- **Automatic extraction** — after each turn, a background task asks the LLM to distill only *new* knowledge, de-duplicated against what's already known, and stores it per data source (with a confidence level).
+- **Human-in-the-loop** — 👍 a good answer to save it as a few-shot example the model follows next time.
+- **Curated metrics** — validated, named metrics act as high-trust, reusable definitions.
+- **Relevance-ranked recall** — on each new question, the most relevant knowledge, examples, and metrics are selected (weighted by confidence and clamped to a token budget) and injected into the prompt, keeping answers grounded without bloating context.
 
 ## 🛠️ Tech stack
 
@@ -74,6 +98,7 @@ Try it without installing anything:
 | 🎯 **Analyzed sources** | MySQL · PostgreSQL · Oracle |
 | 🤖 **LLM** | Any OpenAI-compatible API (DeepSeek, OpenAI, …) |
 | 📧 **Email / files** | SMTP via [lettre](https://github.com/lettre/lettre) · Excel via [rust_xlsxwriter](https://github.com/jmcnamara/rust_xlsxwriter) |
+| 💬 **Notifications** | Feishu (Lark) custom-bot webhook with optional HMAC-SHA256 signing |
 | ⚛️ **Frontend** | React 19 · Vite · TypeScript · Tailwind CSS · Zustand · React Router |
 
 ## 🏗️ Architecture
@@ -91,11 +116,11 @@ Try it without installing anything:
    (platform metadata)             (MySQL · PG · Oracle)            (OpenAI-compatible)
             ▲                                                                  
             │                                                                  
-   Background schedulers ──────────▶ SMTP server
-   (snapshots · email alerts)        (alert emails + Excel attachments)
+   Background schedulers ──────┬───▶ SMTP server      (alert emails + Excel)
+   (snapshots · alerts)        └───▶ Feishu webhook    (interactive cards)
 ```
 
-The API server is stateless apart from the metadata database; the SPA talks to it through a same-origin `/api` prefix (including a WebSocket at `/api/chat`). Two background schedulers run inside the server process — one for metric **snapshots**, one for **email alerts** — both claiming due work atomically so they're safe to run as multiple instances.
+The API server is stateless apart from the metadata database; the SPA talks to it through a same-origin `/api` prefix (including a WebSocket at `/api/chat`). Two background schedulers run inside the server process — one for metric **snapshots**, one for **alerts** — both claiming due work atomically so they're safe to run as multiple instances. A triggered alert is delivered to every channel enabled on its rule (email and/or Feishu), and each channel's outcome is recorded independently so a partial failure stays visible.
 
 ## ⚡ Quick start with Docker (recommended)
 
@@ -170,7 +195,7 @@ Server configuration lives in `server/.env` (see `server/.env.example`):
 | `JWT_SECRET` | Secret for signing auth tokens (**min. 16 chars**). |
 | `CORS_ALLOWED_ORIGIN` | Allowed origin, or `*` for development. |
 
-> The LLM provider, API key, model, and SMTP settings are configured at runtime in the app (Settings / Email Alerts) and stored in the database — no environment variable needed.
+> The LLM provider, API key, model, and notification settings (SMTP and Feishu webhook) are configured at runtime in the app (Settings / Alerts) and stored in the database — no environment variable needed.
 
 ## 📦 Production deployment
 
@@ -203,7 +228,9 @@ ai-report/
 │   ├── src/
 │   │   ├── routes/         # HTTP / WS handlers
 │   │   ├── llm/            # LLM client & prompts
-│   │   ├── alert_engine.rs # email-alert evaluation & delivery
+│   │   ├── alert_engine.rs # alert evaluation & multi-channel delivery
+│   │   ├── email.rs        # SMTP delivery (lettre)
+│   │   ├── feishu.rs       # Feishu (Lark) webhook delivery
 │   │   └── ...
 │   └── migrations/         # SQL migrations (run on startup)
 ├── docs/                   # design notes
@@ -216,13 +243,16 @@ ai-report/
 
 - 🔑 **Auth** — JWT-signed sessions; the server refuses to start without a strong `JWT_SECRET`. Login is rate-limited against brute force.
 - 🛡️ **Read-only by design** — user/AI SQL passes an allowlist validator (only `SELECT`/`SHOW`/`DESCRIBE`/`EXPLAIN`/CTEs) and runs with per-query timeouts and row caps.
-- 🙈 **Secret handling** — datasource/LLM/SMTP credentials are never returned by the API.
+- 🙈 **Secret handling** — datasource/LLM credentials and notification secrets (SMTP password, Feishu signing secret) are never returned by the API.
 - 📣 **Reporting a vulnerability** — please report security issues privately to **[macrogroot@outlook.com](mailto:macrogroot@outlook.com)** rather than opening a public issue.
 
 > Treat the metadata database as sensitive: it stores connection credentials. Run it on a trusted host and restrict network access.
 
 ## 🗺️ Roadmap
 
+- [ ] **Embedding-based semantic retrieval** for the knowledge base & examples (today they're ranked by keyword relevance)
+- [ ] Feishu **Bitable (Base)** sync — write metric/alert records into a multi-dimensional table
+- [ ] More notification channels (DingTalk, WeChat Work, Slack)
 - [ ] Encryption-at-rest for stored credentials (opt-in via key)
 - [ ] Optional Oracle support as a build feature + slimmer default image
 - [ ] Published multi-arch Docker images (GHCR) on tagged releases

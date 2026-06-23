@@ -886,27 +886,29 @@ pub async fn build_kg_context(state: &AppState, datasource_id: Option<i32>, last
             if ctx.trim().is_empty() {
                 "No schema has been introspected yet. Ask the user to scan a data source first.".into()
             } else {
-                // Append AI knowledge base entries
+                // Append AI knowledge base entries (ranked by relevance + confidence,
+                // clamped to a budget so the learned context stays focused).
                 let knowledge = if let Some(ds_id) = datasource_id {
-                    sqlx::query_as::<_, (String, String, String)>(
-                        "SELECT category, title, content FROM knowledge_base WHERE datasource_id = ? ORDER BY category"
+                    sqlx::query_as::<_, (String, String, String, String)>(
+                        "SELECT category, title, content, confidence FROM knowledge_base WHERE datasource_id = ? ORDER BY category"
                     )
                     .bind(ds_id)
                     .fetch_all(&state.db)
                     .await
                     .unwrap_or_default()
                 } else {
-                    sqlx::query_as::<_, (String, String, String)>(
-                        "SELECT category, title, content FROM knowledge_base ORDER BY datasource_id, category"
+                    sqlx::query_as::<_, (String, String, String, String)>(
+                        "SELECT category, title, content, confidence FROM knowledge_base ORDER BY datasource_id, category"
                     )
                     .fetch_all(&state.db)
                     .await
                     .unwrap_or_default()
                 };
 
+                let knowledge = rank_knowledge(knowledge, last_user_query);
                 if !knowledge.is_empty() {
                     ctx.push_str("\n### AI Knowledge Base (learned from previous conversations)\n");
-                    for (category, title, content) in &knowledge {
+                    for (category, title, content, _conf) in &knowledge {
                         ctx.push_str(&format!("- [{}] {}: {}\n", category, title, content));
                     }
                 }
@@ -994,56 +996,120 @@ pub async fn build_kg_context(state: &AppState, datasource_id: Option<i32>, last
     }
 }
 
-/// Rank few-shot examples by keyword relevance to the user's current query.
-/// Returns the top 5 most relevant examples.
+// ── Relevance retrieval ──────────────────────────────────────────────────
+//
+// The learned context (knowledge base, few-shot examples, metrics) is ranked
+// by relevance to the user's current query and clamped to a token/char budget
+// so it stays focused and can't balloon the prompt as the knowledge grows.
+//
+// Scoring is currently lexical (keyword overlap). The pure scoring/selection
+// functions below are deliberately isolated so an embedding-based scorer can be
+// dropped in later without touching the retrieval call sites.
+
+/// Max few-shot examples (and metrics) injected.
+const EXAMPLE_MAX: usize = 5;
+/// Max knowledge-base entries injected, and the char budget for that block.
+const KNOWLEDGE_MAX_ENTRIES: usize = 25;
+const KNOWLEDGE_CHAR_BUDGET: usize = 6000;
+
+/// Tokenize a string into lowercased keywords longer than 2 chars.
+fn keywords(s: &str) -> Vec<String> {
+    s.split(|c: char| !c.is_alphanumeric() && c != '_')
+        .filter(|w| w.len() > 2)
+        .map(|w| w.to_lowercase())
+        .collect()
+}
+
+/// Lexical relevance of `text` against precomputed query keywords:
+/// +2 per matched keyword, +5 when one string contains the other (near-match).
+fn lexical_score(text: &str, query_keywords: &[String], query_lower: &str) -> usize {
+    if query_keywords.is_empty() {
+        return 0;
+    }
+    let text_lower = text.to_lowercase();
+    let mut score = 0usize;
+    for kw in query_keywords {
+        if text_lower.contains(kw) {
+            score += 2;
+        }
+    }
+    if !query_lower.is_empty()
+        && (text_lower.contains(query_lower) || query_lower.contains(&text_lower))
+    {
+        score += 5;
+    }
+    score
+}
+
+/// Rank few-shot examples by relevance to the user's current query.
+/// Returns the top `EXAMPLE_MAX` most relevant examples.
 fn rank_examples_by_relevance(
     examples: Vec<(String, String)>,
     user_query: &str,
 ) -> Vec<(String, String)> {
-    if examples.is_empty() || user_query.is_empty() {
-        return examples.into_iter().take(5).collect();
+    let kws = keywords(user_query);
+    if examples.is_empty() || kws.is_empty() {
+        return examples.into_iter().take(EXAMPLE_MAX).collect();
     }
-
-    // Tokenize user query into keywords (lowercase, >2 chars)
-    let query_keywords: Vec<&str> = user_query
-        .split(|c: char| !c.is_alphanumeric() && c != '_')
-        .filter(|w| w.len() > 2)
-        .collect();
-
-    if query_keywords.is_empty() {
-        return examples.into_iter().take(5).collect();
-    }
-
     let query_lower = user_query.to_lowercase();
 
-    // Score each example by keyword overlap
     let mut scored: Vec<(usize, (String, String))> = examples
         .into_iter()
         .map(|(q, a)| {
-            let q_lower = q.to_lowercase();
-            let a_lower = a.to_lowercase();
-            let combined = format!("{} {}", q_lower, a_lower);
-
-            let mut score = 0usize;
-            for kw in &query_keywords {
-                let kw_lower = kw.to_lowercase();
-                if combined.contains(&kw_lower) {
-                    score += 2;
-                }
-            }
-
-            // Bonus for very similar questions
-            if q_lower.contains(&query_lower) || query_lower.contains(&q_lower) {
-                score += 5;
-            }
-
+            let combined = format!("{} {}", q, a);
+            // Question matches count double (weighted by adding the question score).
+            let score = lexical_score(&combined, &kws, &query_lower)
+                + lexical_score(&q, &kws, &query_lower);
             (score, (q, a))
         })
         .collect();
 
-    // Sort by score descending, take top 5
     scored.sort_by(|a, b| b.0.cmp(&a.0));
-    scored.into_iter().take(5).map(|(_, ex)| ex).collect()
+    scored.into_iter().take(EXAMPLE_MAX).map(|(_, ex)| ex).collect()
+}
+
+/// Rank knowledge entries `(category, title, content, confidence)` by relevance
+/// to the user query, boosted by stored confidence, then keep the highest-scored
+/// entries that fit within `KNOWLEDGE_CHAR_BUDGET` (and `KNOWLEDGE_MAX_ENTRIES`).
+fn rank_knowledge(
+    entries: Vec<(String, String, String, String)>,
+    user_query: &str,
+) -> Vec<(String, String, String, String)> {
+    if entries.is_empty() {
+        return entries;
+    }
+    let kws = keywords(user_query);
+    let query_lower = user_query.to_lowercase();
+
+    let mut scored: Vec<(i64, (String, String, String, String))> = entries
+        .into_iter()
+        .map(|e| {
+            let combined = format!("{} {}", e.1, e.2); // title + content
+            let mut score = lexical_score(&combined, &kws, &query_lower) as i64;
+            // Confidence acts as a tie-breaker / mild prior when nothing matches.
+            score += match e.3.as_str() {
+                "high" => 3,
+                "medium" => 1,
+                _ => 0,
+            };
+            (score, e)
+        })
+        .collect();
+
+    scored.sort_by(|a, b| b.0.cmp(&a.0));
+
+    let mut out = Vec::new();
+    let mut used = 0usize;
+    for (_, e) in scored.into_iter().take(KNOWLEDGE_MAX_ENTRIES) {
+        let line_len = e.0.len() + e.1.len() + e.2.len() + 8;
+        // Always keep at least one entry; otherwise stop once the budget is hit.
+        if !out.is_empty() && used + line_len > KNOWLEDGE_CHAR_BUDGET {
+            break;
+        }
+        used += line_len;
+        out.push(e);
+    }
+    out
 }
 
 /// Compute Jaccard token similarity between two strings (0.0 ~ 1.0).
@@ -1083,5 +1149,70 @@ fn confidence_rank(confidence: &str) -> u8 {
         "medium" => 2,
         "low" => 1,
         _ => 0,
+    }
+}
+
+#[cfg(test)]
+mod retrieval_tests {
+    use super::*;
+
+    #[test]
+    fn keywords_lowercases_and_drops_short_tokens() {
+        let kws = keywords("Top Revenue by Region!");
+        assert!(kws.contains(&"top".to_string()));
+        assert!(kws.contains(&"revenue".to_string()));
+        assert!(kws.contains(&"region".to_string()));
+        // "by" is <= 2 chars and dropped.
+        assert!(!kws.contains(&"by".to_string()));
+    }
+
+    #[test]
+    fn lexical_score_rewards_keyword_and_substring_matches() {
+        let kws = keywords("monthly revenue");
+        let q = "monthly revenue".to_lowercase();
+        // Two keyword matches (+4) plus full-substring containment (+5).
+        assert_eq!(lexical_score("monthly revenue report", &kws, &q), 9);
+        // No overlap → 0.
+        assert_eq!(lexical_score("user login latency", &kws, &q), 0);
+    }
+
+    #[test]
+    fn rank_examples_orders_by_relevance_and_caps_at_max() {
+        let examples = vec![
+            ("How many users?".to_string(), "SELECT count(*) FROM users".to_string()),
+            ("Monthly revenue trend".to_string(), "SELECT sum(total) FROM orders".to_string()),
+            ("a".to_string(), "b".to_string()),
+            ("c".to_string(), "d".to_string()),
+            ("e".to_string(), "f".to_string()),
+            ("g".to_string(), "h".to_string()),
+        ];
+        let ranked = rank_examples_by_relevance(examples, "monthly revenue");
+        assert_eq!(ranked.len(), EXAMPLE_MAX);
+        // The revenue example should rank first.
+        assert_eq!(ranked[0].0, "Monthly revenue trend");
+    }
+
+    #[test]
+    fn rank_knowledge_prefers_relevant_then_confident() {
+        let entries = vec![
+            ("field".into(), "user region".into(), "region maps to sales territory".into(), "low".into()),
+            ("business".into(), "revenue rule".into(), "monthly revenue excludes cancelled orders".into(), "high".into()),
+        ];
+        let ranked = rank_knowledge(entries, "monthly revenue");
+        // The revenue entry is both relevant and high-confidence → first.
+        assert_eq!(ranked[0].1, "revenue rule");
+    }
+
+    #[test]
+    fn rank_knowledge_enforces_char_budget() {
+        // Build many large entries; the budget must cap how many survive.
+        let big = "x".repeat(1000);
+        let entries: Vec<(String, String, String, String)> = (0..50)
+            .map(|i| ("business".into(), format!("t{}", i), big.clone(), "medium".into()))
+            .collect();
+        let ranked = rank_knowledge(entries, "unrelated query terms");
+        // Each entry is ~1000 chars; the 6000-char budget keeps far fewer than 50.
+        assert!(ranked.len() <= 7, "expected budget to cap entries, got {}", ranked.len());
+        assert!(!ranked.is_empty());
     }
 }

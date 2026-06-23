@@ -12,11 +12,13 @@ import {
   CheckCircle,
   XCircle,
   WarningCircle,
+  ChatCircleDots,
 } from '@phosphor-icons/react';
 import { useAlertStore } from '../stores/alertStore';
 import { metricsApi, alertsApi } from '../lib/api';
 import type { MetricPool, AlertRule, AlertLog, AlertOperator } from '../lib/types';
 import SmtpModal from '../components/SmtpModal';
+import FeishuModal from '../components/FeishuModal';
 
 const OPERATORS: { value: AlertOperator; label: string }[] = [
   { value: 'gt', label: '> 大于' },
@@ -31,20 +33,22 @@ const SCHEDULE_TYPES = ['hourly', 'daily', 'weekly', 'monthly', 'cron'];
 
 export default function AlertsPage() {
   const { t, i18n } = useTranslation();
-  const { rules, logs, smtp, loading, fetchRules, deleteRule, updateRule, fetchSmtp, fetchLogs } = useAlertStore();
+  const { rules, logs, smtp, feishu, loading, fetchRules, deleteRule, updateRule, fetchSmtp, fetchFeishu, fetchLogs } = useAlertStore();
 
   const [metrics, setMetrics] = useState<MetricPool[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showSmtp, setShowSmtp] = useState(false);
+  const [showFeishu, setShowFeishu] = useState(false);
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   useEffect(() => {
     fetchRules();
     fetchSmtp();
+    fetchFeishu();
     fetchLogs({ limit: 100 });
     metricsApi.list().then(setMetrics).catch(() => {});
-  }, [fetchRules, fetchSmtp, fetchLogs]);
+  }, [fetchRules, fetchSmtp, fetchFeishu, fetchLogs]);
 
   const selectedRule = useMemo(
     () => rules.find((r) => r.id === selectedId) ?? null,
@@ -85,6 +89,15 @@ export default function AlertsPage() {
                 }`}
               >
                 <Gear size={14} />
+              </button>
+              <button
+                onClick={() => setShowFeishu(true)}
+                title={t('alerts.feishuSettings')}
+                className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${
+                  feishu?.enabled ? 'text-green-400 hover:bg-obsidian-800' : 'text-gray-500 hover:text-amber-500 hover:bg-obsidian-800'
+                }`}
+              >
+                <ChatCircleDots size={14} />
               </button>
               <button
                 onClick={() => { setCreating(true); setSelectedId(null); }}
@@ -181,6 +194,7 @@ export default function AlertsPage() {
       </div>
 
       {showSmtp && <SmtpModal onClose={() => setShowSmtp(false)} />}
+      {showFeishu && <FeishuModal onClose={() => setShowFeishu(false)} />}
 
       {deleteTarget != null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setDeleteTarget(null)}>
@@ -270,6 +284,7 @@ function RuleEditor({
   const [cronExpr, setCronExpr] = useState(rule?.cron_expr ?? '');
   const [cooldown, setCooldown] = useState<string>(rule ? String(rule.cooldown_minutes) : '0');
   const [includeExcel, setIncludeExcel] = useState(rule?.include_excel ?? true);
+  const [notifyFeishu, setNotifyFeishu] = useState(rule?.notify_feishu ?? false);
   const [subject, setSubject] = useState(rule?.subject_template ?? '');
   const [body, setBody] = useState(rule?.body_template ?? '');
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
@@ -303,8 +318,8 @@ function RuleEditor({
       flash('err', t('alerts.validation.nameMetric'));
       return null;
     }
-    if (parsedRecipients().length === 0) {
-      flash('err', t('alerts.validation.recipients'));
+    if (parsedRecipients().length === 0 && !notifyFeishu) {
+      flash('err', t('alerts.validation.channel'));
       return null;
     }
     setBusy(true);
@@ -320,6 +335,7 @@ function RuleEditor({
         subject_template: subject,
         body_template: body || null,
         include_excel: includeExcel,
+        notify_feishu: notifyFeishu,
         cooldown_minutes: parseInt(cooldown) || 0,
         enabled,
       };
@@ -363,7 +379,9 @@ function RuleEditor({
   };
 
   const handleTrigger = async () => {
-    const saved = rule ?? (await handleSave());
+    // Always persist the current form first so toggles like "push to Feishu"
+    // take effect — the backend re-reads the rule from the DB when running it.
+    const saved = await handleSave();
     if (!saved) return;
     setBusy(true);
     try {
@@ -378,12 +396,15 @@ function RuleEditor({
   };
 
   const handleTest = async () => {
-    const saved = rule ?? (await handleSave());
+    // Persist first (see handleTrigger) so the test uses the latest settings.
+    const saved = await handleSave();
     if (!saved) return;
     setBusy(true);
     try {
       const res = await alertsApi.testRule(saved.id, parsedRecipients());
-      flash('ok', res.message);
+      // A "sent" status can still hide a failed channel — surface those.
+      const partial = /partial failures/i.test(res.message);
+      flash(partial ? 'err' : 'ok', res.message);
       onRefreshLogs();
     } catch (e) {
       flash('err', (e as Error).message);
@@ -474,6 +495,10 @@ function RuleEditor({
           <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
             <input type="checkbox" checked={includeExcel} onChange={(e) => setIncludeExcel(e.target.checked)} className="accent-amber-500" />
             {t('alerts.fields.includeExcel')}
+          </label>
+          <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+            <input type="checkbox" checked={notifyFeishu} onChange={(e) => setNotifyFeishu(e.target.checked)} className="accent-amber-500" />
+            {t('alerts.fields.notifyFeishu')}
           </label>
           <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
             <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="accent-amber-500" />

@@ -521,6 +521,25 @@ pub struct UpdateSmtpConfig {
     pub enabled: Option<bool>,
 }
 
+/// Global Feishu (Lark) custom-bot configuration (single row, id = 1).
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct FeishuConfig {
+    pub id: i32,
+    pub webhook_url: String,
+    #[serde(skip_serializing)]
+    pub secret: String,
+    pub enabled: bool,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateFeishuConfig {
+    pub webhook_url: Option<String>,
+    pub secret: Option<String>,
+    pub enabled: Option<bool>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct AlertRule {
     pub id: i32,
@@ -536,6 +555,7 @@ pub struct AlertRule {
     pub subject_template: String,
     pub body_template: Option<String>,
     pub include_excel: bool,
+    pub notify_feishu: bool,
     pub cooldown_minutes: i32,
     pub last_run_at: Option<chrono::DateTime<chrono::Utc>>,
     pub next_run_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -557,6 +577,7 @@ pub struct CreateAlertRule {
     pub subject_template: Option<String>,
     pub body_template: Option<String>,
     pub include_excel: Option<bool>,
+    pub notify_feishu: Option<bool>,
     pub cooldown_minutes: Option<i32>,
 }
 
@@ -573,6 +594,7 @@ pub struct UpdateAlertRule {
     pub subject_template: Option<String>,
     pub body_template: Option<String>,
     pub include_excel: Option<bool>,
+    pub notify_feishu: Option<bool>,
     pub cooldown_minutes: Option<i32>,
 }
 

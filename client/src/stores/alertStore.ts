@@ -3,9 +3,11 @@ import type {
   AlertRule,
   AlertLog,
   SmtpConfig,
+  FeishuConfig,
   CreateAlertRulePayload,
   UpdateAlertRulePayload,
   UpdateSmtpConfigPayload,
+  UpdateFeishuConfigPayload,
 } from '../lib/types';
 import { alertsApi } from '../lib/api';
 
@@ -13,6 +15,7 @@ interface AlertStore {
   rules: AlertRule[];
   logs: AlertLog[];
   smtp: SmtpConfig | null;
+  feishu: FeishuConfig | null;
   loading: boolean;
   error: string | null;
 
@@ -24,6 +27,9 @@ interface AlertStore {
   fetchSmtp: () => Promise<void>;
   updateSmtp: (payload: UpdateSmtpConfigPayload) => Promise<void>;
 
+  fetchFeishu: () => Promise<void>;
+  updateFeishu: (payload: UpdateFeishuConfigPayload) => Promise<void>;
+
   fetchLogs: (params?: { rule_id?: number; limit?: number }) => Promise<void>;
   setError: (error: string | null) => void;
 }
@@ -32,6 +38,7 @@ export const useAlertStore = create<AlertStore>((set) => ({
   rules: [],
   logs: [],
   smtp: null,
+  feishu: null,
   loading: false,
   error: null,
 
@@ -94,6 +101,26 @@ export const useAlertStore = create<AlertStore>((set) => ({
     try {
       const smtp = await alertsApi.updateSmtp(payload);
       set({ smtp, loading: false });
+    } catch (e: unknown) {
+      set({ error: (e as Error).message, loading: false });
+      throw e;
+    }
+  },
+
+  fetchFeishu: async () => {
+    try {
+      const feishu = await alertsApi.getFeishu();
+      set({ feishu });
+    } catch (e: unknown) {
+      set({ error: (e as Error).message });
+    }
+  },
+
+  updateFeishu: async (payload) => {
+    set({ loading: true, error: null });
+    try {
+      const feishu = await alertsApi.updateFeishu(payload);
+      set({ feishu, loading: false });
     } catch (e: unknown) {
       set({ error: (e as Error).message, loading: false });
       throw e;

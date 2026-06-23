@@ -140,6 +140,89 @@ pub async fn test_smtp(
     })))
 }
 
+// ── Feishu config ──
+
+/// Get the Feishu config (secret masked).
+pub async fn get_feishu(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let cfg = sqlx::query_as::<_, FeishuConfig>("SELECT * FROM feishu_config WHERE id = 1")
+        .fetch_optional(&state.db)
+        .await
+        .map_err(crate::routes::internal_error)?;
+
+    let value = match cfg {
+        Some(c) => serde_json::json!({
+            "id": c.id,
+            "webhook_url": c.webhook_url,
+            "secret_set": !c.secret.is_empty(),
+            "enabled": c.enabled,
+        }),
+        None => serde_json::json!({
+            "id": 1, "webhook_url": "", "secret_set": false, "enabled": false,
+        }),
+    };
+    Ok(Json(value))
+}
+
+/// Update the Feishu config. Empty secret preserves the existing one.
+pub async fn update_feishu(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<UpdateFeishuConfig>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let existing = sqlx::query_as::<_, FeishuConfig>("SELECT * FROM feishu_config WHERE id = 1")
+        .fetch_optional(&state.db)
+        .await
+        .map_err(crate::routes::internal_error)?;
+
+    let base_url = existing.as_ref().map(|c| c.webhook_url.clone()).unwrap_or_default();
+    let base_secret = existing.as_ref().map(|c| c.secret.clone()).unwrap_or_default();
+    let base_enabled = existing.as_ref().map(|c| c.enabled).unwrap_or(false);
+
+    let webhook_url = payload.webhook_url.unwrap_or(base_url);
+    // Only overwrite the secret when a non-empty value is provided.
+    let secret = match payload.secret {
+        Some(s) if !s.is_empty() => s,
+        _ => base_secret,
+    };
+    let enabled = payload.enabled.unwrap_or(base_enabled);
+
+    sqlx::query(
+        "INSERT INTO feishu_config (id, webhook_url, secret, enabled)
+         VALUES (1, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE webhook_url=VALUES(webhook_url), secret=VALUES(secret),
+           enabled=VALUES(enabled), updated_at=CURRENT_TIMESTAMP",
+    )
+    .bind(&webhook_url)
+    .bind(&secret)
+    .bind(enabled)
+    .execute(&state.db)
+    .await
+    .map_err(crate::routes::internal_error)?;
+
+    get_feishu(State(state)).await
+}
+
+/// Send a test card to verify the Feishu webhook + signing secret.
+pub async fn test_feishu(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let cfg = sqlx::query_as::<_, FeishuConfig>("SELECT * FROM feishu_config WHERE id = 1")
+        .fetch_optional(&state.db)
+        .await
+        .map_err(crate::routes::internal_error)?
+        .ok_or((StatusCode::BAD_REQUEST, "Feishu not configured".to_string()))?;
+
+    crate::feishu::send_text(&cfg, "测试连接成功")
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+
+    Ok(Json(serde_json::json!({
+        "status": "ok",
+        "message": "Test card sent to Feishu"
+    })))
+}
+
 // ── Alert rule CRUD ──
 
 const VALID_OPERATORS: &[&str] = &["gt", "gte", "lt", "lte", "eq", "ne"];
@@ -195,8 +278,8 @@ pub async fn create_rule(
 
     let result = sqlx::query(
         "INSERT INTO alert_rules (name, metric_pool_id, condition_column, operator, threshold, recipients,
-            schedule_type, cron_expr, enabled, subject_template, body_template, include_excel, cooldown_minutes, next_run_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)",
+            schedule_type, cron_expr, enabled, subject_template, body_template, include_excel, notify_feishu, cooldown_minutes, next_run_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&payload.name)
     .bind(payload.metric_pool_id)
@@ -209,6 +292,7 @@ pub async fn create_rule(
     .bind(payload.subject_template.unwrap_or_default())
     .bind(&payload.body_template)
     .bind(payload.include_excel.unwrap_or(true))
+    .bind(payload.notify_feishu.unwrap_or(false))
     .bind(payload.cooldown_minutes.unwrap_or(0))
     .bind(next_run)
     .execute(&state.db)
@@ -256,6 +340,7 @@ pub async fn update_rule(
     let subject_template = payload.subject_template.unwrap_or(existing.subject_template);
     let body_template = payload.body_template.or(existing.body_template);
     let include_excel = payload.include_excel.unwrap_or(existing.include_excel);
+    let notify_feishu = payload.notify_feishu.unwrap_or(existing.notify_feishu);
     let cooldown_minutes = payload.cooldown_minutes.unwrap_or(existing.cooldown_minutes);
 
     let next_run = if enabled {
@@ -267,7 +352,7 @@ pub async fn update_rule(
     sqlx::query(
         "UPDATE alert_rules SET name=?, condition_column=?, operator=?, threshold=?, recipients=?,
             schedule_type=?, cron_expr=?, enabled=?, subject_template=?, body_template=?,
-            include_excel=?, cooldown_minutes=?, next_run_at=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            include_excel=?, notify_feishu=?, cooldown_minutes=?, next_run_at=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
     )
     .bind(&name)
     .bind(&condition_column)
@@ -280,6 +365,7 @@ pub async fn update_rule(
     .bind(&subject_template)
     .bind(&body_template)
     .bind(include_excel)
+    .bind(notify_feishu)
     .bind(cooldown_minutes)
     .bind(next_run)
     .bind(id)

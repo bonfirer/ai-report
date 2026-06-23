@@ -364,6 +364,19 @@ export interface UpdateSmtpConfigPayload {
   enabled?: boolean;
 }
 
+export interface FeishuConfig {
+  id: number;
+  webhook_url: string;
+  secret_set: boolean;
+  enabled: boolean;
+}
+
+export interface UpdateFeishuConfigPayload {
+  webhook_url?: string;
+  secret?: string;
+  enabled?: boolean;
+}
+
 export type AlertOperator = 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'ne';
 
 export interface AlertRule {
@@ -380,9 +393,9 @@ export interface AlertRule {
   subject_template: string;
   body_template?: string | null;
   include_excel: boolean;
+  notify_feishu: boolean;
   cooldown_minutes: number;
-  last_run_at?: string | null;
-  next_run_at?: string | null;
+  last_run_at?: string | null;  next_run_at?: string | null;
   last_triggered_at?: string | null;
   created_at?: string;
   updated_at?: string;
@@ -400,6 +413,7 @@ export interface CreateAlertRulePayload {
   subject_template?: string;
   body_template?: string | null;
   include_excel?: boolean;
+  notify_feishu?: boolean;
   cooldown_minutes?: number;
 }
 
@@ -415,6 +429,7 @@ export interface UpdateAlertRulePayload {
   subject_template?: string;
   body_template?: string | null;
   include_excel?: boolean;
+  notify_feishu?: boolean;
   cooldown_minutes?: number;
 }
 

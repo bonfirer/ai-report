@@ -24,6 +24,7 @@ mod snapshot_scheduler;
 mod alert_scheduler;
 mod alert_engine;
 mod email;
+mod feishu;
 mod excel;
 mod column_profiler;
 pub mod ai_log;
@@ -84,6 +85,7 @@ async fn main() {
     run_migrations(&pool, include_str!("../migrations/019_column_descriptions.sql")).await;
     run_migrations(&pool, include_str!("../migrations/020_conversation_generation_status.sql")).await;
     run_migrations(&pool, include_str!("../migrations/021_email_alerts.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/022_feishu_alerts.sql")).await;
 
     let state = Arc::new(AppState {
         db: pool,
@@ -180,6 +182,10 @@ async fn main() {
         .route("/api/alerts/smtp", get(routes::alerts::get_smtp))
         .route("/api/alerts/smtp", put(routes::alerts::update_smtp))
         .route("/api/alerts/smtp/test", post(routes::alerts::test_smtp))
+        // Alerts — Feishu config
+        .route("/api/alerts/feishu", get(routes::alerts::get_feishu))
+        .route("/api/alerts/feishu", put(routes::alerts::update_feishu))
+        .route("/api/alerts/feishu/test", post(routes::alerts::test_feishu))
         // Email Alerts — rules
         .route("/api/alerts/rules", get(routes::alerts::list_rules))
         .route("/api/alerts/rules", post(routes::alerts::create_rule))

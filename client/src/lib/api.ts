@@ -31,6 +31,8 @@ import type {
   SnapshotComparison,
   SmtpConfig,
   UpdateSmtpConfigPayload,
+  FeishuConfig,
+  UpdateFeishuConfigPayload,
   AlertRule,
   CreateAlertRulePayload,
   UpdateAlertRulePayload,
@@ -76,6 +78,8 @@ export type {
   SnapshotComparison,
   SmtpConfig,
   UpdateSmtpConfigPayload,
+  FeishuConfig,
+  UpdateFeishuConfigPayload,
   AlertRule,
   CreateAlertRulePayload,
   UpdateAlertRulePayload,
@@ -348,6 +352,13 @@ export const alertsApi = {
       method: 'POST',
       body: JSON.stringify({ to }),
     }),
+
+  // Feishu config
+  getFeishu: () => request<FeishuConfig>('/alerts/feishu'),
+  updateFeishu: (payload: UpdateFeishuConfigPayload) =>
+    request<FeishuConfig>('/alerts/feishu', { method: 'PUT', body: JSON.stringify(payload) }),
+  testFeishu: () =>
+    request<{ status: string; message: string }>('/alerts/feishu/test', { method: 'POST' }),
 
   // Alert rules
   listRules: () => request<AlertRule[]>('/alerts/rules'),

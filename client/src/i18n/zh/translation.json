@@ -499,6 +499,7 @@
     "resumeHint": "点击启动该预警",
     "smtpSettings": "邮件服务器设置",
     "smtpNotConfigured": "尚未配置邮件服务器，点击齿轮图标配置",
+    "feishuSettings": "飞书机器人设置",
     "recentLogs": "最近记录",
     "triggerNow": "立即执行",
     "sendTest": "发送测试",
@@ -539,13 +540,15 @@
       "cooldown": "冷却(分钟)",
       "recipients": "收件人",
       "includeExcel": "附带 Excel 数据",
+      "notifyFeishu": "推送到飞书",
       "enabled": "启用规则",
       "subject": "邮件主题",
       "body": "邮件正文"
     },
     "validation": {
       "nameMetric": "请填写规则名称并选择指标",
-      "recipients": "请至少填写一个收件人邮箱"
+      "recipients": "请至少填写一个收件人邮箱",
+      "channel": "请至少填写一个收件人邮箱，或开启“推送到飞书”"
     },
     "smtp": {
       "host": "SMTP 主机",
@@ -558,6 +561,15 @@
       "enabled": "启用邮件发送",
       "testEmail": "发送测试邮件至",
       "testToRequired": "请填写测试收件邮箱"
+    },
+    "feishu": {
+      "webhook": "Webhook 地址",
+      "webhookHint": "在飞书群「设置 → 群机器人 → 添加自定义机器人」获取 Webhook 地址",
+      "secret": "签名密钥（可选）",
+      "secretHint": "若机器人启用了「加签」安全设置，请填写对应密钥；留空表示不加签",
+      "enabled": "启用飞书推送",
+      "testSend": "发送测试卡片",
+      "webhookRequired": "请先填写 Webhook 地址"
     },
     "deleteConfirm": {
       "title": "确认删除",

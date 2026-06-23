@@ -6,6 +6,7 @@ use serde_json::Value;
 
 use crate::email::{self, EmailAttachment};
 use crate::excel;
+use crate::feishu;
 use crate::models::*;
 use crate::routes::query;
 use crate::AppState;
@@ -81,16 +82,11 @@ pub async fn run_alert(
         }
     }
 
-    // Load SMTP config.
+    // Load SMTP config (may be absent/disabled — Feishu can still deliver).
     let smtp = sqlx::query_as::<_, SmtpConfig>("SELECT * FROM smtp_config WHERE id = 1")
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "SMTP is not configured".to_string())?;
-
-    if !smtp.enabled {
-        return Err("SMTP is disabled. Enable it in alert settings.".to_string());
-    }
+        .map_err(|e| e.to_string())?;
 
     let recipients: Vec<String> = serde_json::from_value(rule.recipients.clone()).unwrap_or_default();
 
@@ -118,32 +114,116 @@ pub async fn run_alert(
         .unwrap_or_else(|| default_body_template());
     let body = render_template(&body_tpl, &ctx);
 
-    // Build optional Excel attachment.
-    let mut attachments = Vec::new();
-    if rule.include_excel {
-        match excel::build_metric_xlsx(&metric.name, &rows_value) {
-            Ok(bytes) => attachments.push(EmailAttachment {
-                filename: format!(
-                    "{}_{}.xlsx",
-                    sanitize_filename(&metric.name),
-                    Utc::now().format("%Y%m%d_%H%M%S")
-                ),
-                content_type:
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".to_string(),
-                bytes,
-            }),
-            Err(e) => tracing::warn!("Failed to build Excel attachment: {}", e),
+    // Track delivery across every configured channel. The alert is considered
+    // "sent" if at least one channel succeeds; per-channel errors are collected
+    // into the outcome message so failures stay visible in the logs.
+    let mut delivered: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+    let mut attempted = false;
+
+    // ── Email channel ──
+    let email_enabled = smtp.as_ref().map(|s| s.enabled).unwrap_or(false);
+    if !recipients.is_empty() && email_enabled {
+        attempted = true;
+        let smtp_cfg = smtp.as_ref().unwrap();
+
+        // Build optional Excel attachment.
+        let mut attachments = Vec::new();
+        if rule.include_excel {
+            match excel::build_metric_xlsx(&metric.name, &rows_value) {
+                Ok(bytes) => attachments.push(EmailAttachment {
+                    filename: format!(
+                        "{}_{}.xlsx",
+                        sanitize_filename(&metric.name),
+                        Utc::now().format("%Y%m%d_%H%M%S")
+                    ),
+                    content_type:
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".to_string(),
+                    bytes,
+                }),
+                Err(e) => tracing::warn!("Failed to build Excel attachment: {}", e),
+            }
+        }
+
+        match email::send_email(smtp_cfg, &recipients, &subject, &body, attachments).await {
+            Ok(()) => delivered.push(format!("email×{}", recipients.len())),
+            Err(e) => errors.push(format!("email: {}", e)),
         }
     }
 
-    email::send_email(&smtp, &recipients, &subject, &body, attachments).await?;
+    // ── Feishu channel ──
+    if rule.notify_feishu {
+        let feishu_cfg = sqlx::query_as::<_, FeishuConfig>("SELECT * FROM feishu_config WHERE id = 1")
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|e| e.to_string())?;
+        match feishu_cfg {
+            Some(cfg) if cfg.enabled && !cfg.webhook_url.trim().is_empty() => {
+                attempted = true;
+                let card = build_alert_card(&metric.name, &ctx);
+                match feishu::send_card(&cfg, card).await {
+                    Ok(()) => delivered.push("feishu".to_string()),
+                    Err(e) => errors.push(format!("feishu: {}", e)),
+                }
+            }
+            _ => errors.push("feishu: not configured or disabled".to_string()),
+        }
+    }
+
+    // No channel was even attempted — the rule has no usable delivery target.
+    if !attempted {
+        return Err(
+            "No delivery channel available: enable SMTP with recipients, or enable Feishu for this rule."
+                .to_string(),
+        );
+    }
+
+    if delivered.is_empty() {
+        // Every attempted channel failed.
+        return Err(errors.join("; "));
+    }
+
+    let mut message = format!("Delivered via {}", delivered.join(", "));
+    if !errors.is_empty() {
+        message.push_str(&format!(" (partial failures: {})", errors.join("; ")));
+    }
 
     Ok(AlertOutcome {
         triggered,
         evaluated_value: evaluated,
         status: "sent".to_string(),
-        message: format!("Email sent to {} recipient(s)", recipients.len()),
+        message,
     })
+}
+
+/// Build the Feishu interactive card for a triggered alert.
+fn build_alert_card(metric_name: &str, ctx: &TemplateContext) -> serde_json::Value {
+    let value_str = ctx
+        .value
+        .map(format_num)
+        .unwrap_or_else(|| "—".to_string());
+    let condition = format!(
+        "{} {} {}",
+        value_str,
+        operator_symbol(ctx.operator),
+        format_num(ctx.threshold)
+    );
+    let fields = vec![
+        feishu::CardField { label: "指标".to_string(), value: metric_name.to_string() },
+        feishu::CardField { label: "当前值".to_string(), value: value_str },
+        feishu::CardField { label: "触发条件".to_string(), value: condition },
+        feishu::CardField { label: "数据行数".to_string(), value: ctx.row_count.to_string() },
+        feishu::CardField {
+            label: "触发时间".to_string(),
+            value: Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+        },
+    ];
+    feishu::build_card(
+        &format!("⚠️ 指标预警：{}", metric_name),
+        "red",
+        &fields,
+        Some("本卡片由 AI Report 自动推送"),
+    )
 }
 
 /// Persist an alert log entry.

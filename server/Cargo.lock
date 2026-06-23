@@ -22,10 +22,12 @@ name = "ai-report-server"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64",
  "bcrypt",
  "chrono",
  "dotenvy",
  "futures",
+ "hmac",
  "jsonwebtoken",
  "lettre",
  "oracle",
@@ -34,6 +36,7 @@ dependencies = [
  "rust_xlsxwriter",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "tokio",
  "tokio-stream",
