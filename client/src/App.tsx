@@ -40,6 +40,13 @@ export default function App() {
       .catch(() => setAuthed(false));
   }, []);
 
+  // Drop to the login screen when any API call reports an expired session.
+  useEffect(() => {
+    const onExpired = () => setAuthed(false);
+    window.addEventListener('auth-expired', onExpired);
+    return () => window.removeEventListener('auth-expired', onExpired);
+  }, []);
+
   // Still checking
   if (authed === null) {
     return (

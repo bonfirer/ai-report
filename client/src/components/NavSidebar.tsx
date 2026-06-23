@@ -38,7 +38,7 @@ export default function NavSidebar() {
   };
 
   return (
-    <nav className="w-[52px] bg-obsidian-950 border-r border-obsidian-700 flex flex-col items-center py-3 gap-1 flex-shrink-0">
+    <nav aria-label={t('nav.mainNav')} className="w-[52px] bg-obsidian-950 border-r border-obsidian-700 flex flex-col items-center py-3 gap-1 flex-shrink-0">
       {/* Logo */}
       <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center mb-4 flex-shrink-0">
         <span className="text-[#08080c] text-xs font-extrabold tracking-tighter">R</span>
@@ -52,6 +52,7 @@ export default function NavSidebar() {
             key={to}
             to={to}
             title={t(tKey)}
+            aria-label={t(tKey)}
             className={`
               w-9 h-9 rounded-md flex items-center justify-center transition-premium
               ${isActive
@@ -71,6 +72,7 @@ export default function NavSidebar() {
       <NavLink
         to="/settings"
         title={t('nav.settings')}
+        aria-label={t('nav.settings')}
         className={`
           w-9 h-9 rounded-md flex items-center justify-center transition-premium
           ${location.pathname.startsWith('/settings')
@@ -86,6 +88,7 @@ export default function NavSidebar() {
         onClick={toggleLang}
         className="w-7 h-7 text-[10px] text-gray-500 hover:text-gray-300 hover:bg-obsidian-800 rounded-md transition-premium font-medium"
         title={i18n.language === 'zh' ? 'Switch to English' : '切换到中文'}
+        aria-label={i18n.language === 'zh' ? 'Switch to English' : '切换到中文'}
       >
         {i18n.language === 'zh' ? 'EN' : '中'}
       </button>
@@ -95,6 +98,7 @@ export default function NavSidebar() {
         onClick={toggleTheme}
         className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-obsidian-800 rounded-md transition-premium"
         title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       >
         {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
       </button>
@@ -108,6 +112,7 @@ export default function NavSidebar() {
         }}
         className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-obsidian-800 rounded-md transition-premium"
         title={t('nav.logout')}
+        aria-label={t('nav.logout')}
       >
         <SignOut size={14} />
       </button>

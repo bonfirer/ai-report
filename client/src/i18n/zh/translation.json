@@ -9,7 +9,8 @@
     "alerts": "邮件预警",
     "logs": "AI 日志",
     "settings": "设置",
-    "logout": "退出登录"
+    "logout": "退出登录",
+    "mainNav": "主导航"
   },
   "common": {
     "delete": "删除",
@@ -18,7 +19,9 @@
     "test": "测试",
     "refresh": "刷新",
     "save": "保存",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "back": "返回",
+    "close": "关闭"
   },
   "datasources": {
     "title": "数据源",
@@ -123,6 +126,10 @@
     "title": "报表",
     "description": "查看和管理已生成的报表",
     "startConversation": "新建分析",
+    "deleteConfirm": {
+      "title": "确认删除报表",
+      "message": "确定要删除「{{name}}」吗？此操作不可撤销。"
+    },
     "noVisualization": "未配置图表",
     "aiRendered": "AI 已渲染",
     "newReport": "新建报表",
@@ -423,7 +430,8 @@
     "signIn": "登录",
     "createAccount": "创建账号",
     "loading": "验证中...",
-    "failed": "登录失败"
+    "failed": "登录失败",
+    "sessionExpired": "登录已过期，请重新登录。"
   },
   "errors": {
     "loadFailed": "加载失败",

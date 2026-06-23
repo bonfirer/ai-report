@@ -26,6 +26,12 @@ function AuroraBackground() {
 
     let time = 0;
 
+    // Respect reduced-motion: skip the perpetual animation loop entirely.
+    const reduceMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     // Simplex-like noise via sin combinations
     function noise(x: number, y: number, t: number) {
       return (
@@ -84,7 +90,7 @@ function AuroraBackground() {
         ctx!.fill();
       }
 
-      animationId = requestAnimationFrame(draw);
+      if (!reduceMotion) animationId = requestAnimationFrame(draw);
     }
 
     draw();
@@ -149,6 +155,14 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [isSetup, setIsSetup] = useState(false);
   const [checking, setChecking] = useState(true);
   const [focused, setFocused] = useState<'user' | 'pass' | null>(null);
+  const [expiredNotice, setExpiredNotice] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem('sessionExpired')) {
+      setExpiredNotice(true);
+      sessionStorage.removeItem('sessionExpired');
+    }
+  }, []);
 
   useEffect(() => {
     fetch(`${BASE}/auth/check`)
@@ -278,6 +292,10 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
               placeholder="••••••••"
             />
           </div>
+
+          {expiredNotice && !error && (
+            <p className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">{t('login.sessionExpired')}</p>
+          )}
 
           {error && (
             <p className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>

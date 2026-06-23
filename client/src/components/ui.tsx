@@ -1,4 +1,4 @@
-import { type ReactNode, Component } from 'react';
+import { type ReactNode, Component, useEffect, useRef, useState } from 'react';
 import { X, WarningCircle } from '@phosphor-icons/react';
 
 // ── Error Boundary ──
@@ -162,6 +162,96 @@ export function Card({
       className={`bg-obsidian-900 border border-obsidian-700 rounded-xl ${className}`}
     >
       {children}
+    </div>
+  );
+}
+
+// ── Confirm Dialog ──
+// Accessible, reusable confirmation modal: closes on Escape or backdrop click,
+// focuses the confirm button on open, and disables both buttons while the
+// (possibly async) confirm handler is in flight to prevent double-submits.
+export function ConfirmDialog({
+  open,
+  title,
+  message,
+  confirmLabel,
+  cancelLabel,
+  onConfirm,
+  onCancel,
+  danger = true,
+}: {
+  open: boolean;
+  title: string;
+  message?: ReactNode;
+  confirmLabel: string;
+  cancelLabel: string;
+  onConfirm: () => void | Promise<void>;
+  onCancel: () => void;
+  danger?: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !busy) onCancel();
+    };
+    window.addEventListener('keydown', onKey);
+    const raf = requestAnimationFrame(() => confirmRef.current?.focus());
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      cancelAnimationFrame(raf);
+    };
+  }, [open, busy, onCancel]);
+
+  if (!open) return null;
+
+  const handleConfirm = async () => {
+    try {
+      setBusy(true);
+      await onConfirm();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      onClick={() => { if (!busy) onCancel(); }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="bg-obsidian-900 border border-obsidian-700 rounded-xl p-5 w-80 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-sm font-semibold text-gray-100 mb-2">{title}</h3>
+        {message && <p className="text-xs text-gray-400 mb-4">{message}</p>}
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="text-xs text-gray-400 hover:text-gray-200 px-3 py-1.5 rounded-md border border-obsidian-700 transition-premium disabled:opacity-50"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            ref={confirmRef}
+            onClick={handleConfirm}
+            disabled={busy}
+            className={`text-xs px-3 py-1.5 rounded-md transition-premium disabled:opacity-60 ${
+              danger
+                ? 'text-white bg-red-600 hover:bg-red-500'
+                : 'text-[#08080c] bg-amber-500 hover:bg-amber-400'
+            }`}
+          >
+            {busy ? '…' : confirmLabel}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

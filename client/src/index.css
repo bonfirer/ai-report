@@ -276,3 +276,18 @@ html.light .hover\:text-gray-300:hover { color: #1f2937 !important; }
 
 /* Light theme: focus states */
 html.light .focus\:border-amber-500\/50:focus { border-color: rgba(212, 168, 83, 0.5) !important; }
+
+/* ── Accessibility: respect the user's reduced-motion preference ── */
+/* Neutralizes CSS animations/transitions and smooth scrolling for users who
+   opt out of motion (vestibular disorders, etc.). JS-driven canvas animations
+   are guarded separately in their components. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

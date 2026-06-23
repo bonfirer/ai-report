@@ -9,7 +9,8 @@
     "alerts": "Email Alerts",
     "logs": "AI Logs",
     "settings": "Settings",
-    "logout": "Sign Out"
+    "logout": "Sign Out",
+    "mainNav": "Main navigation"
   },
   "common": {
     "delete": "Delete",
@@ -18,7 +19,9 @@
     "test": "Test",
     "refresh": "Refresh",
     "save": "Save",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "back": "Back",
+    "close": "Close"
   },
   "datasources": {
     "title": "Data Sources",
@@ -123,6 +126,10 @@
     "title": "Reports",
     "description": "View and manage your generated reports",
     "startConversation": "New Analysis",
+    "deleteConfirm": {
+      "title": "Delete Report",
+      "message": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
+    },
     "noVisualization": "No charts configured",
     "aiRendered": "AI Rendered",
     "newReport": "New Report",
@@ -423,7 +430,8 @@
     "signIn": "Sign In",
     "createAccount": "Create Account",
     "loading": "Verifying...",
-    "failed": "Login failed"
+    "failed": "Login failed",
+    "sessionExpired": "Your session has expired. Please sign in again."
   },
   "errors": {
     "loadFailed": "Failed to load",

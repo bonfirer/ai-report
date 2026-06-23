@@ -1,5 +1,7 @@
 const BASE = '/api';
 
+import { clearEmbedToken } from './embedToken';
+
 import type {
   DataSource,
   CreateDataSourcePayload,
@@ -94,9 +96,15 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     headers,
   });
   if (res.status === 401) {
-    // Token expired or invalid — force re-login
+    // Session expired/invalid — flag it and switch to the login screen via an
+    // event instead of a jarring full-page reload. The login page surfaces a
+    // "session expired" notice so the user understands what happened.
     localStorage.removeItem('token');
-    window.location.reload();
+    try {
+      sessionStorage.setItem('sessionExpired', '1');
+    } catch { /* ignore */ }
+    clearEmbedToken();
+    window.dispatchEvent(new Event('auth-expired'));
     throw new Error('Unauthorized');
   }
   if (!res.ok) {

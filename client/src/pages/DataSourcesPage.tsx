@@ -27,7 +27,7 @@ import {
   type ColumnInfo,
   type QueryResult,
 } from '../lib/api';
-import { PageHeader, ErrorBanner, EmptyState, StatusDot } from '../components/ui';
+import { PageHeader, ErrorBanner, EmptyState, StatusDot, ConfirmDialog } from '../components/ui';
 import KnowledgeBasePanel from '../components/KnowledgeBasePanel';
 import { useDataSourceStore } from '../stores/datasourceStore';
 
@@ -1242,6 +1242,7 @@ export default function DataSourcesPage() {
                 onClick={() => setShowDeleteConfirm(true)}
                 className="text-gray-600 hover:text-red-400 p-1.5 rounded transition-premium"
                 title={t('common.delete')}
+                aria-label={t('common.delete')}
               >
                 <Trash size={14} />
               </button>
@@ -1552,28 +1553,15 @@ export default function DataSourcesPage() {
       )}
 
       {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="bg-obsidian-900 border border-obsidian-700 rounded-xl p-5 w-80 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-gray-100 mb-2">{t('datasources.deleteConfirm.title')}</h3>
-            <p className="text-xs text-gray-400 mb-4">{t('datasources.deleteConfirm.message', { name: selectedDs?.name || '' })}</p>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="text-xs text-gray-400 hover:text-gray-200 px-3 py-1.5 rounded-md border border-obsidian-700 transition-premium"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={handleDelete}
-                className="text-xs text-white bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-md transition-premium"
-              >
-                {t('common.delete')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title={t('datasources.deleteConfirm.title')}
+        message={t('datasources.deleteConfirm.message', { name: selectedDs?.name || '' })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
 
       {/* Save SQL Favorite Modal */}
       {showSaveSqlModal && (

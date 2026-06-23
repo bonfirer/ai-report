@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ChartBar, Trash, ArrowRight, Clock, ChatCircle } from '@phosphor-icons/react';
 import { reportsApi } from '../lib/api';
 import type { Report } from '../lib/types';
-import { PageHeader, ErrorBanner, EmptyState } from '../components/ui';
+import { PageHeader, ErrorBanner, EmptyState, ConfirmDialog } from '../components/ui';
 import { fetchEmbedToken } from '../lib/embedToken';
 
 export default function ReportsPage() {
@@ -13,6 +13,7 @@ export default function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Report | null>(null);
 
   const fetchReports = useCallback(async () => {
     try {
@@ -41,14 +42,16 @@ export default function ReportsPage() {
     return () => clearInterval(timer);
   }, [reports]);
 
-  const handleDelete = async (e: React.MouseEvent, id: number) => {
-    e.stopPropagation();
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await reportsApi.delete(id);
+      await reportsApi.delete(deleteTarget.id);
       await fetchReports();
       window.dispatchEvent(new Event('reports-updated'));
     } catch (e) {
       setError(e instanceof Error ? e.message : t('errors.deleteFailed'));
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -211,7 +214,7 @@ export default function ReportsPage() {
 
                 <div className="flex items-center gap-1 px-4 py-2 border-t border-obsidian-700 bg-obsidian-800/50">
                   <button
-                    onClick={(e) => handleDelete(e, report.id)}
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(report); }}
                     className="flex items-center gap-1 text-[10px] text-gray-600 hover:text-red-400 px-2 py-1 rounded transition-premium"
                   >
                     <Trash size={12} /> {t('common.delete')}
@@ -225,6 +228,16 @@ export default function ReportsPage() {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title={t('reports.deleteConfirm.title')}
+        message={t('reports.deleteConfirm.message', { name: deleteTarget?.title })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

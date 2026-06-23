@@ -313,7 +313,7 @@ export default function ReportDetailPage() {
       {/* ── Top Bar ── */}
       <div className="flex items-center px-5 py-2.5 border-b border-obsidian-700 flex-shrink-0">
         <div className="flex items-center gap-3 flex-1">
-          <button onClick={() => navigate('/reports')} className="text-gray-500 hover:text-gray-300 transition-premium"><ArrowLeft size={16} /></button>
+          <button onClick={() => navigate('/reports')} aria-label={t('common.back')} className="text-gray-500 hover:text-gray-300 transition-premium"><ArrowLeft size={16} /></button>
           <h1 className="text-sm font-bold text-gray-100">{report.title}</h1>
           {currentVersion != null && (
             <span className="text-[8px] bg-obsidian-700 text-gray-300 px-1.5 py-0.5 rounded-full font-mono font-medium" title={t('reportDetail.currentVersion')}>
@@ -363,6 +363,7 @@ export default function ReportDetailPage() {
             onClick={() => { if (iframeRef.current && id) iframeRef.current.src = withToken(`/api/reports/${id}/html?t=${Date.now()}`); }}
             className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-200 border border-obsidian-700 px-2 py-1.5 rounded-md transition-premium"
             title={t('common.refresh')}
+            aria-label={t('common.refresh')}
           >
             <ArrowClockwise size={11} />
           </button>
@@ -409,7 +410,7 @@ export default function ReportDetailPage() {
           <div className="w-48 bg-obsidian-900 border-l border-obsidian-700 flex flex-col flex-shrink-0 order-2">
             <div className="flex items-center justify-between px-3 py-2 border-b border-obsidian-700">
               <span className="text-[10px] text-gray-300 font-medium">{t('reportDetail.versions')}</span>
-              <button onClick={() => { setShowVersions(false); setCompareVersionId(null); }} className="text-gray-500 hover:text-gray-300"><X size={12} /></button>
+              <button onClick={() => { setShowVersions(false); setCompareVersionId(null); }} aria-label={t('common.close')} className="text-gray-500 hover:text-gray-300"><X size={12} /></button>
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-thin p-2 space-y-1.5">
               {versions.length === 0 && (
@@ -458,6 +459,7 @@ export default function ReportDetailPage() {
                         }}
                         className="text-gray-600 hover:text-amber-500 transition-premium"
                         title={t('reportDetail.restoreVersion')}
+                        aria-label={t('reportDetail.restoreVersion')}
                       >
                         <ArrowCounterClockwise size={12} />
                       </button>
@@ -469,6 +471,7 @@ export default function ReportDetailPage() {
                         }}
                         className="text-gray-600 hover:text-red-400 transition-premium"
                         title={t('reportDetail.deleteVersion')}
+                        aria-label={t('reportDetail.deleteVersion')}
                       >
                         <Trash size={12} />
                       </button>

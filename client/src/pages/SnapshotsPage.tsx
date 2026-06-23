@@ -4,6 +4,7 @@ import { Camera, Plus, Trash, Clock, ArrowUp, ArrowDown, Minus } from '@phosphor
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { metricsApi } from '../lib/api';
 import type { MetricPool, MetricSnapshot, SnapshotSchedule } from '../lib/types';
+import { ConfirmDialog } from '../components/ui';
 
 export default function SnapshotsPage() {
   const { t } = useTranslation();
@@ -186,6 +187,8 @@ export default function SnapshotsPage() {
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(schedule.id); }}
                   className="w-5 h-5 rounded flex items-center justify-center text-gray-500 hover:text-red-400"
+                  aria-label={t('common.delete')}
+                  title={t('common.delete')}
                 >
                   <Trash size={10} />
                 </button>
@@ -341,28 +344,15 @@ export default function SnapshotsPage() {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setDeleteTarget(null)}>
-          <div className="bg-obsidian-900 border border-obsidian-700 rounded-xl p-5 w-80 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-gray-100 mb-2">{t('snapshots.deleteConfirm.title')}</h3>
-            <p className="text-xs text-gray-400 mb-4">{t('snapshots.deleteConfirm.message')}</p>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="text-xs text-gray-400 hover:text-gray-200 px-3 py-1.5 rounded-md border border-obsidian-700 transition-premium"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="text-xs text-white bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-md transition-premium"
-              >
-                {t('common.delete')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title={t('snapshots.deleteConfirm.title')}
+        message={t('snapshots.deleteConfirm.message')}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
       {/* Toggle Confirmation Modal */}
       {toggleTarget && (
@@ -499,6 +489,7 @@ function SingleRowTable({
   metricId: number;
   onDelete: (metricId: number, snapshotId: number) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-lg border border-obsidian-700 overflow-hidden">
       <div className="overflow-x-auto">
@@ -562,6 +553,8 @@ function SingleRowTable({
                     <button
                       onClick={() => onDelete(metricId, snap.id)}
                       className="w-5 h-5 rounded flex items-center justify-center text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label={t('common.delete')}
+                      title={t('common.delete')}
                     >
                       <Trash size={10} />
                     </button>
@@ -592,6 +585,7 @@ function MultiRowTable({
   metricId: number;
   onDelete: (metricId: number, snapshotId: number) => void;
 }) {
+  const { t } = useTranslation();
   const [expandedId, setExpandedId] = useState<number | null>(parsed[0]?.id ?? null);
 
   return (
@@ -621,6 +615,8 @@ function MultiRowTable({
               <button
                 onClick={(e) => { e.stopPropagation(); onDelete(metricId, snap.id); }}
                 className="w-5 h-5 rounded flex items-center justify-center text-gray-600 hover:text-red-400 transition-colors"
+                aria-label={t('common.delete')}
+                title={t('common.delete')}
               >
                 <Trash size={10} />
               </button>
