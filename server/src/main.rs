@@ -21,6 +21,10 @@ mod llm;
 mod models;
 mod routes;
 mod snapshot_scheduler;
+mod alert_scheduler;
+mod alert_engine;
+mod email;
+mod excel;
 mod column_profiler;
 pub mod ai_log;
 
@@ -79,6 +83,7 @@ async fn main() {
     run_migrations(&pool, include_str!("../migrations/018_table_descriptions.sql")).await;
     run_migrations(&pool, include_str!("../migrations/019_column_descriptions.sql")).await;
     run_migrations(&pool, include_str!("../migrations/020_conversation_generation_status.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/021_email_alerts.sql")).await;
 
     let state = Arc::new(AppState {
         db: pool,
@@ -171,6 +176,21 @@ async fn main() {
         .route("/api/metrics/{id}/snapshots", post(routes::snapshots::take_snapshot))
         .route("/api/metrics/{id}/snapshots/{snapshot_id}", delete(routes::snapshots::delete_snapshot))
         .route("/api/metrics/{id}/snapshots/compare", get(routes::snapshots::compare_snapshots))
+        // Email Alerts — SMTP config
+        .route("/api/alerts/smtp", get(routes::alerts::get_smtp))
+        .route("/api/alerts/smtp", put(routes::alerts::update_smtp))
+        .route("/api/alerts/smtp/test", post(routes::alerts::test_smtp))
+        // Email Alerts — rules
+        .route("/api/alerts/rules", get(routes::alerts::list_rules))
+        .route("/api/alerts/rules", post(routes::alerts::create_rule))
+        .route("/api/alerts/rules/{id}", get(routes::alerts::get_rule))
+        .route("/api/alerts/rules/{id}", put(routes::alerts::update_rule))
+        .route("/api/alerts/rules/{id}", delete(routes::alerts::delete_rule))
+        .route("/api/alerts/rules/{id}/trigger", post(routes::alerts::trigger_rule))
+        .route("/api/alerts/rules/{id}/test", post(routes::alerts::test_rule))
+        // Email Alerts — AI template + logs
+        .route("/api/alerts/generate-template", post(routes::alerts::generate_template))
+        .route("/api/alerts/logs", get(routes::alerts::list_logs))
         .route("/api/llm/config", get(routes::llm_config::get_config))
         .route("/api/llm/config", put(routes::llm_config::update_config))
         .route("/api/llm/config/test", post(routes::llm_config::test_connection))
@@ -226,7 +246,10 @@ async fn main() {
         .with_state(state.clone());
 
     // Start background snapshot scheduler
-    snapshot_scheduler::spawn(state);
+    snapshot_scheduler::spawn(state.clone());
+
+    // Start background email alert scheduler
+    alert_scheduler::spawn(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3001")
         .await

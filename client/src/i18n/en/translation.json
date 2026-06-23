@@ -6,6 +6,7 @@
     "reports": "Reports",
     "metrics": "Metrics",
     "snapshots": "Snapshots",
+    "alerts": "Email Alerts",
     "logs": "AI Logs",
     "settings": "Settings",
     "logout": "Sign Out"
@@ -471,6 +472,85 @@
     "deleteConfirm": {
       "title": "Confirm Delete",
       "message": "Are you sure you want to delete this schedule? All associated snapshot data will also be removed."
+    }
+  },
+  "alerts": {
+    "title": "Email Alerts",
+    "description": "Threshold-based metric alerts on a schedule, with AI-generated email templates and Excel data attachments",
+    "newRule": "New Alert Rule",
+    "editRule": "Edit Alert Rule",
+    "noRules": "No alert rules",
+    "noRulesHint": "Set threshold conditions on metrics to send alert emails automatically.",
+    "selectOrCreate": "Select an alert rule on the left, or create one",
+    "running": "Running",
+    "paused": "Paused",
+    "pauseHint": "Click to pause this alert",
+    "resumeHint": "Click to resume this alert",
+    "smtpSettings": "Email Server Settings",
+    "smtpNotConfigured": "Email server not configured. Click the gear icon to set it up.",
+    "recentLogs": "Recent Activity",
+    "triggerNow": "Run Now",
+    "sendTest": "Send Test",
+    "template": "Email Template",
+    "preview": "Preview",
+    "editTemplate": "Edit",
+    "aiGenerate": "Generate with AI",
+    "generating": "Generating...",
+    "aiGenerated": "Template generated",
+    "aiInstructionsPlaceholder": "Optional: tone / language / focus notes",
+    "bodyPlaceholder": "HTML email body. Leave empty to use the default template.",
+    "placeholderHint": "Placeholders (wrap in double braces): metric_name, value, threshold, condition, time, row_count, table",
+    "saved": "Saved",
+    "schedule": {
+      "hourly": "Hourly",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "cron": "Cron"
+    },
+    "logStatus": {
+      "sent": "Sent",
+      "failed": "Failed",
+      "not_triggered": "Not triggered",
+      "skipped": "Skipped"
+    },
+    "fields": {
+      "name": "Rule Name",
+      "namePlaceholder": "e.g. DAU below threshold",
+      "metric": "Monitored Metric",
+      "selectMetric": "Select metric...",
+      "column": "Monitored Column",
+      "firstNumeric": "(first numeric column)",
+      "condition": "Trigger Condition",
+      "conditionPrefix": "When value is",
+      "schedule": "Check Frequency",
+      "cron": "Cron Expression",
+      "cooldown": "Cooldown (min)",
+      "recipients": "Recipients",
+      "includeExcel": "Attach Excel data",
+      "enabled": "Enable rule",
+      "subject": "Email Subject",
+      "body": "Email Body"
+    },
+    "validation": {
+      "nameMetric": "Please enter a rule name and select a metric",
+      "recipients": "Please add at least one recipient email"
+    },
+    "smtp": {
+      "host": "SMTP Host",
+      "port": "Port",
+      "username": "Username",
+      "password": "Password",
+      "fromEmail": "From Email",
+      "fromName": "From Name",
+      "useTls": "Use TLS",
+      "enabled": "Enable sending",
+      "testEmail": "Send test email to",
+      "testToRequired": "Please enter a test recipient email"
+    },
+    "deleteConfirm": {
+      "title": "Confirm Delete",
+      "message": "Are you sure you want to delete this alert rule? Its send history will also be removed."
     }
   }
 }

@@ -6,6 +6,7 @@
     "reports": "报表",
     "metrics": "指标库",
     "snapshots": "数据快照",
+    "alerts": "邮件预警",
     "logs": "AI 日志",
     "settings": "设置",
     "logout": "退出登录"
@@ -471,6 +472,85 @@
     "deleteConfirm": {
       "title": "确认删除",
       "message": "确定要删除该快照计划？相关的所有快照数据也将被清除。"
+    }
+  },
+  "alerts": {
+    "title": "邮件预警",
+    "description": "根据指标阈值定时预警，AI 自动生成邮件模板，并附带 Excel 数据",
+    "newRule": "新建预警规则",
+    "editRule": "编辑预警规则",
+    "noRules": "暂无预警规则",
+    "noRulesHint": "为指标设置阈值条件，满足时自动发送预警邮件。",
+    "selectOrCreate": "选择左侧的预警规则，或新建一个",
+    "running": "运行中",
+    "paused": "已暂停",
+    "pauseHint": "点击暂停该预警",
+    "resumeHint": "点击启动该预警",
+    "smtpSettings": "邮件服务器设置",
+    "smtpNotConfigured": "尚未配置邮件服务器，点击齿轮图标配置",
+    "recentLogs": "最近记录",
+    "triggerNow": "立即执行",
+    "sendTest": "发送测试",
+    "template": "邮件模板",
+    "preview": "预览",
+    "editTemplate": "编辑",
+    "aiGenerate": "AI 生成",
+    "generating": "生成中...",
+    "aiGenerated": "已生成模板",
+    "aiInstructionsPlaceholder": "可选：补充语气/语言/重点说明",
+    "bodyPlaceholder": "HTML 邮件正文，留空则使用默认模板",
+    "placeholderHint": "可用占位符（用双花括号包裹）：metric_name、value、threshold、condition、time、row_count、table",
+    "saved": "已保存",
+    "schedule": {
+      "hourly": "每小时",
+      "daily": "每天",
+      "weekly": "每周",
+      "monthly": "每月",
+      "cron": "Cron"
+    },
+    "logStatus": {
+      "sent": "已发送",
+      "failed": "失败",
+      "not_triggered": "未触发",
+      "skipped": "已跳过"
+    },
+    "fields": {
+      "name": "规则名称",
+      "namePlaceholder": "如：日活跌破阈值预警",
+      "metric": "监控指标",
+      "selectMetric": "选择指标...",
+      "column": "监控字段",
+      "firstNumeric": "（第一个数值字段）",
+      "condition": "触发条件",
+      "conditionPrefix": "当数值",
+      "schedule": "检查周期",
+      "cron": "Cron 表达式",
+      "cooldown": "冷却(分钟)",
+      "recipients": "收件人",
+      "includeExcel": "附带 Excel 数据",
+      "enabled": "启用规则",
+      "subject": "邮件主题",
+      "body": "邮件正文"
+    },
+    "validation": {
+      "nameMetric": "请填写规则名称并选择指标",
+      "recipients": "请至少填写一个收件人邮箱"
+    },
+    "smtp": {
+      "host": "SMTP 主机",
+      "port": "端口",
+      "username": "用户名",
+      "password": "密码",
+      "fromEmail": "发件邮箱",
+      "fromName": "发件人名称",
+      "useTls": "使用 TLS",
+      "enabled": "启用邮件发送",
+      "testEmail": "发送测试邮件至",
+      "testToRequired": "请填写测试收件邮箱"
+    },
+    "deleteConfirm": {
+      "title": "确认删除",
+      "message": "确定要删除该预警规则？相关的发送记录也将被清除。"
     }
   }
 }

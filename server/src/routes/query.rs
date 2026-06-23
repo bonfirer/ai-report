@@ -188,9 +188,6 @@ pub async fn execute(
     State(state): State<Arc<AppState>>,
     Json(req): Json<QueryRequest>,
 ) -> Result<Json<QueryResult>, (StatusCode, String)> {
-    // Validate SQL safety
-    validate_sql(&req.sql).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-
     // Get datasource connection info
     let ds = sqlx::query_as::<_, DataSource>("SELECT * FROM datasources WHERE id = ?")
         .bind(req.datasource_id)
@@ -199,27 +196,12 @@ pub async fn execute(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .ok_or((StatusCode::NOT_FOUND, "Data source not found".to_string()))?;
 
-    // Execute with timeout via tokio::time::timeout
-    let query_future = async {
-        match ds.db_type.as_str() {
-            "mysql" => execute_mysql(&state, &ds, &req.sql).await,
-            "postgresql" => execute_postgres(&state, &ds, &req.sql).await,
-            "oracle" => execute_oracle(&state, &ds, &req.sql).await,
-            other => Err(format!("Unsupported database type: {}", other)),
-        }
-    };
-
-    let query_result = timeout(Duration::from_secs(QUERY_TIMEOUT_SECS), query_future)
+    // Validate + execute with shared safety guards (timeout + row cap).
+    let query_result = execute_validated(&state, &ds, &req.sql)
         .await
-        .map_err(|_| (StatusCode::GATEWAY_TIMEOUT, "Query timed out after 30 seconds".to_string()))?
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
-    // Truncate to row limit
-    let truncated_rows: Vec<serde_json::Value> = query_result
-        .rows
-        .into_iter()
-        .take(MAX_ROWS)
-        .collect();
+    let truncated_rows = query_result.rows;
     let row_count = truncated_rows.len();
 
     // Save as data pool
@@ -246,6 +228,32 @@ pub async fn execute(
     }))
 }
 
+/// Validate a SQL string, dispatch to the right per-DB executor, and enforce the
+/// query timeout. The per-DB executors already cap results at `MAX_ROWS`.
+///
+/// Use this from any path that runs user/metric SQL (HTTP, snapshot scheduler,
+/// alert engine) so the safety guards are applied consistently.
+pub async fn execute_validated(
+    state: &AppState,
+    ds: &DataSource,
+    sql: &str,
+) -> Result<QueryResult, String> {
+    validate_sql(sql)?;
+
+    let fut = async {
+        match ds.db_type.as_str() {
+            "mysql" => execute_mysql(state, ds, sql).await,
+            "postgresql" => execute_postgres(state, ds, sql).await,
+            "oracle" => execute_oracle(state, ds, sql).await,
+            other => Err(format!("Unsupported database type: {}", other)),
+        }
+    };
+
+    timeout(Duration::from_secs(QUERY_TIMEOUT_SECS), fut)
+        .await
+        .map_err(|_| format!("Query timed out after {} seconds", QUERY_TIMEOUT_SECS))?
+}
+
 pub async fn get_pool(
     State(state): State<Arc<AppState>>,
     Path(pool_id): Path<i32>,
@@ -263,29 +271,31 @@ pub async fn get_pool(
 // ── Per-DB query execution helpers ──
 
 pub async fn execute_mysql(state: &AppState, ds: &DataSource, sql: &str) -> Result<QueryResult, String> {
+    use futures::TryStreamExt;
     let pool = state.pool_cache.get_mysql(ds).await?;
 
-    let rows = sqlx::query(sql)
-        .fetch_all(&pool)
-        .await
-        .map_err(|e| format!("MySQL query error: {}", e))?;
-
+    // Stream rows and stop at MAX_ROWS so an oversized result set cannot exhaust
+    // memory (this path is also used by the snapshot/alert schedulers).
+    let mut stream = sqlx::query(sql).fetch(&pool);
     let mut columns: Vec<String> = Vec::new();
-    let json_rows: Vec<serde_json::Value> = rows
-        .iter()
-        .map(|row| {
-            let mut obj = serde_json::Map::new();
-            let cols = row.columns();
-            for (i, col) in cols.iter().enumerate() {
-                let val = mysql_column_to_json(row, i);
-                obj.insert(col.name().to_string(), val);
-            }
-            serde_json::Value::Object(obj)
-        })
-        .collect();
+    let mut json_rows: Vec<serde_json::Value> = Vec::new();
 
-    if let Some(first) = rows.first() {
-        columns = first.columns().iter().map(|c| c.name().to_string()).collect();
+    while let Some(row) = stream
+        .try_next()
+        .await
+        .map_err(|e| format!("MySQL query error: {}", e))?
+    {
+        if columns.is_empty() {
+            columns = row.columns().iter().map(|c| c.name().to_string()).collect();
+        }
+        let mut obj = serde_json::Map::new();
+        for (i, col) in row.columns().iter().enumerate() {
+            obj.insert(col.name().to_string(), mysql_column_to_json(&row, i));
+        }
+        json_rows.push(serde_json::Value::Object(obj));
+        if json_rows.len() >= MAX_ROWS {
+            break;
+        }
     }
 
     let row_count = json_rows.len();
@@ -348,29 +358,30 @@ fn mysql_column_to_json(row: &sqlx::mysql::MySqlRow, idx: usize) -> serde_json::
 }
 
 pub async fn execute_postgres(state: &AppState, ds: &DataSource, sql: &str) -> Result<QueryResult, String> {
+    use futures::TryStreamExt;
     let pool = state.pool_cache.get_postgres(ds).await?;
 
-    let rows = sqlx::query(sql)
-        .fetch_all(&pool)
-        .await
-        .map_err(|e| format!("PostgreSQL query error: {}", e))?;
-
+    // Stream and cap at MAX_ROWS (see execute_mysql).
+    let mut stream = sqlx::query(sql).fetch(&pool);
     let mut columns: Vec<String> = Vec::new();
-    let json_rows: Vec<serde_json::Value> = rows
-        .iter()
-        .map(|row| {
-            let mut obj = serde_json::Map::new();
-            let cols = row.columns();
-            for (i, col) in cols.iter().enumerate() {
-                let val = pg_column_to_json(row, i);
-                obj.insert(col.name().to_string(), val);
-            }
-            serde_json::Value::Object(obj)
-        })
-        .collect();
+    let mut json_rows: Vec<serde_json::Value> = Vec::new();
 
-    if let Some(first) = rows.first() {
-        columns = first.columns().iter().map(|c| c.name().to_string()).collect();
+    while let Some(row) = stream
+        .try_next()
+        .await
+        .map_err(|e| format!("PostgreSQL query error: {}", e))?
+    {
+        if columns.is_empty() {
+            columns = row.columns().iter().map(|c| c.name().to_string()).collect();
+        }
+        let mut obj = serde_json::Map::new();
+        for (i, col) in row.columns().iter().enumerate() {
+            obj.insert(col.name().to_string(), pg_column_to_json(&row, i));
+        }
+        json_rows.push(serde_json::Value::Object(obj));
+        if json_rows.len() >= MAX_ROWS {
+            break;
+        }
     }
 
     let row_count = json_rows.len();
@@ -450,6 +461,7 @@ pub async fn execute_oracle(state: &AppState, ds: &DataSource, sql: &str) -> Res
                 }
                 serde_json::Value::Object(obj)
             })
+            .take(MAX_ROWS)
             .collect();
 
         let row_count = json_rows.len();

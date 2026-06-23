@@ -15,4 +15,5 @@ pub mod ai_logs;
 pub mod ai_examples;
 pub mod achievements;
 pub mod snapshots;
+pub mod alerts;
 pub mod table_descriptions;

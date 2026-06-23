@@ -27,6 +27,14 @@ import type {
   UpdateSnapshotSchedulePayload,
   MetricSnapshot,
   SnapshotComparison,
+  SmtpConfig,
+  UpdateSmtpConfigPayload,
+  AlertRule,
+  CreateAlertRulePayload,
+  UpdateAlertRulePayload,
+  AlertLog,
+  AlertTemplate,
+  GenerateAlertTemplatePayload,
 } from './types';
 
 // Re-export all types from the shared types module
@@ -64,6 +72,14 @@ export type {
   UpdateSnapshotSchedulePayload,
   MetricSnapshot,
   SnapshotComparison,
+  SmtpConfig,
+  UpdateSmtpConfigPayload,
+  AlertRule,
+  CreateAlertRulePayload,
+  UpdateAlertRulePayload,
+  AlertLog,
+  AlertTemplate,
+  GenerateAlertTemplatePayload,
 } from './types';
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
@@ -309,5 +325,50 @@ export const snapshotsApi = {
       previous_key: params.previous_key,
     });
     return request<SnapshotComparison>(`/metrics/${metricId}/snapshots/compare?${searchParams.toString()}`);
+  },
+};
+
+// ── Email Alerts ──
+
+export const alertsApi = {
+  // SMTP config
+  getSmtp: () => request<SmtpConfig>('/alerts/smtp'),
+  updateSmtp: (payload: UpdateSmtpConfigPayload) =>
+    request<SmtpConfig>('/alerts/smtp', { method: 'PUT', body: JSON.stringify(payload) }),
+  testSmtp: (to: string) =>
+    request<{ status: string; message: string }>('/alerts/smtp/test', {
+      method: 'POST',
+      body: JSON.stringify({ to }),
+    }),
+
+  // Alert rules
+  listRules: () => request<AlertRule[]>('/alerts/rules'),
+  getRule: (id: number) => request<AlertRule>(`/alerts/rules/${id}`),
+  createRule: (payload: CreateAlertRulePayload) =>
+    request<AlertRule>('/alerts/rules', { method: 'POST', body: JSON.stringify(payload) }),
+  updateRule: (id: number, payload: UpdateAlertRulePayload) =>
+    request<AlertRule>(`/alerts/rules/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteRule: (id: number) =>
+    request<void>(`/alerts/rules/${id}`, { method: 'DELETE' }),
+  triggerRule: (id: number) =>
+    request<{ triggered: boolean; status: string; evaluated_value: number | null; message: string }>(
+      `/alerts/rules/${id}/trigger`,
+      { method: 'POST' },
+    ),
+  testRule: (id: number, recipients?: string[]) =>
+    request<{ status: string; message: string }>(`/alerts/rules/${id}/test`, {
+      method: 'POST',
+      body: JSON.stringify({ recipients: recipients ?? null }),
+    }),
+
+  // AI template + logs
+  generateTemplate: (payload: GenerateAlertTemplatePayload) =>
+    request<AlertTemplate>('/alerts/generate-template', { method: 'POST', body: JSON.stringify(payload) }),
+  listLogs: (params?: { rule_id?: number; limit?: number }) => {
+    const sp = new URLSearchParams();
+    if (params?.rule_id) sp.set('rule_id', String(params.rule_id));
+    if (params?.limit) sp.set('limit', String(params.limit));
+    const qs = sp.toString();
+    return request<AlertLog[]>(`/alerts/logs${qs ? `?${qs}` : ''}`);
   },
 };

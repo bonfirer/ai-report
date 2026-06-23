@@ -507,3 +507,126 @@ pub struct UpsertColumnDescription {
     pub column_name: String,
     pub description: String,
 }
+
+// ── Email Alerts ──
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct SmtpConfig {
+    pub id: i32,
+    pub host: String,
+    pub port: i32,
+    pub username: String,
+    #[serde(skip_serializing)]
+    pub password: String,
+    pub from_email: String,
+    pub from_name: String,
+    pub use_tls: bool,
+    pub enabled: bool,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateSmtpConfig {
+    pub host: Option<String>,
+    pub port: Option<i32>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub from_email: Option<String>,
+    pub from_name: Option<String>,
+    pub use_tls: Option<bool>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct AlertRule {
+    pub id: i32,
+    pub name: String,
+    pub metric_pool_id: i32,
+    pub condition_column: Option<String>,
+    pub operator: String,
+    pub threshold: f64,
+    pub recipients: serde_json::Value,
+    pub schedule_type: String,
+    pub cron_expr: Option<String>,
+    pub enabled: bool,
+    pub subject_template: String,
+    pub body_template: Option<String>,
+    pub include_excel: bool,
+    pub cooldown_minutes: i32,
+    pub last_run_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub next_run_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub last_triggered_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateAlertRule {
+    pub name: String,
+    pub metric_pool_id: i32,
+    pub condition_column: Option<String>,
+    pub operator: String,
+    pub threshold: f64,
+    pub recipients: Vec<String>,
+    pub schedule_type: String,
+    pub cron_expr: Option<String>,
+    pub subject_template: Option<String>,
+    pub body_template: Option<String>,
+    pub include_excel: Option<bool>,
+    pub cooldown_minutes: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateAlertRule {
+    pub name: Option<String>,
+    pub condition_column: Option<String>,
+    pub operator: Option<String>,
+    pub threshold: Option<f64>,
+    pub recipients: Option<Vec<String>>,
+    pub schedule_type: Option<String>,
+    pub cron_expr: Option<String>,
+    pub enabled: Option<bool>,
+    pub subject_template: Option<String>,
+    pub body_template: Option<String>,
+    pub include_excel: Option<bool>,
+    pub cooldown_minutes: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct AlertLog {
+    pub id: i32,
+    pub alert_rule_id: i32,
+    pub evaluated_value: Option<f64>,
+    pub triggered: bool,
+    pub status: String,
+    pub message: Option<String>,
+    pub error: Option<String>,
+    pub recipients: Option<serde_json::Value>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+/// Request body for AI alert-template generation.
+#[derive(Debug, Deserialize)]
+pub struct GenerateAlertTemplateRequest {
+    pub metric_pool_id: i32,
+    pub operator: String,
+    pub threshold: f64,
+    pub condition_column: Option<String>,
+    /// Optional free-form guidance from the user (tone, language, extra context).
+    pub instructions: Option<String>,
+    /// UI language code ("zh" / "en"); controls the generated email language.
+    pub lang: Option<String>,
+}
+
+/// Request body for sending a test email for an alert rule.
+#[derive(Debug, Deserialize)]
+pub struct TestAlertEmail {
+    pub recipients: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AlertTemplate {
+    pub subject_template: String,
+    pub body_template: String,
+}

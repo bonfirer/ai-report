@@ -13,6 +13,7 @@ import {
   Trophy,
   SignOut,
   Camera,
+  Bell,
 } from '@phosphor-icons/react';
 import { useUIStore } from '../stores/uiStore';
 
@@ -22,6 +23,7 @@ const navKeys = [
   { to: '/reports', icon: ChartBar, tKey: 'nav.reports' },
   { to: '/metrics', icon: Star, tKey: 'nav.metrics' },
   { to: '/snapshots', icon: Camera, tKey: 'nav.snapshots' },
+  { to: '/alerts', icon: Bell, tKey: 'nav.alerts' },
   { to: '/logs', icon: ClockCounterClockwise, tKey: 'nav.logs' },
 ];
 

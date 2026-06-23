@@ -204,3 +204,50 @@ pub fn knowledge_extraction_prompt(schema_context: &str, existing_knowledge: &st
         schema_context, existing_section
     )
 }
+
+/// System prompt for generating an email alert template (subject + HTML body).
+/// The model must return a JSON object: { "subject_template", "body_template" }.
+/// Both fields may contain {{placeholders}} that the alert engine fills at send time.
+pub fn alert_template_prompt(metric_context: &str, condition_desc: &str, lang: &str) -> String {
+    let lang_instruction = match lang {
+        "en" => "Write the subject and body in English.",
+        _ => "请使用中文撰写邮件主题和正文。",
+    };
+
+    format!(
+        r#"You are an expert at writing concise, professional business alert emails. Generate an email template that will be sent automatically when a data metric crosses a threshold.
+
+## Language
+{}
+
+## Metric Context
+{}
+
+## Alert Condition
+{}
+
+## Available Placeholders (use them literally — they are filled in at send time)
+- {{{{metric_name}}}} — the metric's name
+- {{{{value}}}} — the current measured value that triggered the alert
+- {{{{threshold}}}} — the configured threshold
+- {{{{condition}}}} — a human-readable condition string (e.g. "1200 > 1000")
+- {{{{time}}}} — the trigger timestamp
+- {{{{row_count}}}} — number of data rows
+- {{{{table}}}} — an HTML table of the metric's current data (insert this once in the body)
+
+## Requirements
+1. Return ONLY a JSON object with exactly two string fields: "subject_template" and "body_template".
+2. "subject_template": a short, informative subject line. Include {{{{metric_name}}}} and ideally {{{{value}}}}.
+3. "body_template": a COMPLETE, self-contained HTML snippet (a single <div> is fine — do NOT include <html> or <body> tags).
+   - Use a clean, modern design with inline CSS only (email clients ignore <style> blocks).
+   - Clearly state what happened, the current value, the threshold, and when it occurred.
+   - Include the {{{{table}}}} placeholder once so the recipient sees the underlying data.
+   - Mention that the full dataset is attached as an Excel file.
+   - Keep it professional and skimmable. Do not invent specific numbers — only use placeholders.
+4. Output ONLY the raw JSON object — no markdown fences, no commentary.
+
+Example shape:
+{{"subject_template":"[预警] {{{{metric_name}}}} 已达 {{{{value}}}}","body_template":"<div style=\"...\">...{{{{table}}}}...</div>"}}"#,
+        lang_instruction, metric_context, condition_desc
+    )
+}

@@ -43,6 +43,24 @@ async fn tick(state: &Arc<AppState>) -> Result<(), String> {
     info!("Snapshot scheduler: {} schedules due", due_schedules.len());
 
     for schedule in due_schedules {
+        // Atomically claim before running so a concurrent tick / second instance
+        // doesn't take the same snapshot twice.
+        let next_run = compute_next_from_schedule(&schedule);
+        let claimed = sqlx::query(
+            "UPDATE metric_snapshot_schedules SET next_run_at = ?, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ? AND enabled = 1 AND next_run_at IS NOT NULL AND next_run_at <= ?",
+        )
+        .bind(next_run)
+        .bind(schedule.id)
+        .bind(now)
+        .execute(&state.db)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        if claimed.rows_affected() == 0 {
+            continue;
+        }
+
         if let Err(e) = execute_snapshot(state, &schedule).await {
             warn!(
                 "Failed to take snapshot for metric_pool_id={}: {}",
@@ -73,15 +91,8 @@ async fn execute_snapshot(state: &Arc<AppState>, schedule: &MetricSnapshotSchedu
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Datasource {} not found", metric.datasource_id))?;
 
-    // Execute the metric SQL
-    query::validate_sql(&metric.sql_query)?;
-
-    let qr = match ds.db_type.as_str() {
-        "mysql" => query::execute_mysql(state, &ds, &metric.sql_query).await,
-        "postgresql" => query::execute_postgres(state, &ds, &metric.sql_query).await,
-        "oracle" => query::execute_oracle(state, &ds, &metric.sql_query).await,
-        other => Err(format!("Unsupported database type: {}", other)),
-    }?;
+    // Execute the metric SQL (validated, timed out, row-capped)
+    let qr = query::execute_validated(state, &ds, &metric.sql_query).await?;
 
     let result_data = serde_json::to_value(&qr.rows).map_err(|e| e.to_string())?;
 

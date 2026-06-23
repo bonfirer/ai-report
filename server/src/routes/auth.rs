@@ -3,9 +3,66 @@ use axum::{
     http::StatusCode,
     Json,
 };
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use crate::AppState;
+
+/// Log an internal error and return a generic message — never leak DB/internal
+/// detail to unauthenticated callers (login/register/setup are public).
+fn internal(e: impl std::fmt::Display) -> (StatusCode, String) {
+    tracing::error!("auth internal error: {}", e);
+    (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string())
+}
+
+// ── Simple in-memory login rate limiter (per username) ──
+// Locks out a username after too many failed attempts within a window. This is
+// best-effort brute-force mitigation; it is per-process (resets on restart) and
+// keyed by username, which is sufficient for a single-instance admin tool.
+
+const MAX_FAILED_ATTEMPTS: u32 = 5;
+const LOCKOUT_WINDOW: Duration = Duration::from_secs(300); // 5 minutes
+
+struct AttemptRecord {
+    failures: u32,
+    window_start: Instant,
+}
+
+fn login_attempts() -> &'static Mutex<HashMap<String, AttemptRecord>> {
+    static ATTEMPTS: OnceLock<Mutex<HashMap<String, AttemptRecord>>> = OnceLock::new();
+    ATTEMPTS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Returns Err with seconds-remaining if the username is currently locked out.
+fn check_rate_limit(username: &str) -> Result<(), u64> {
+    let map = login_attempts().lock().unwrap();
+    if let Some(rec) = map.get(username) {
+        if rec.window_start.elapsed() < LOCKOUT_WINDOW && rec.failures >= MAX_FAILED_ATTEMPTS {
+            let remaining = LOCKOUT_WINDOW.as_secs().saturating_sub(rec.window_start.elapsed().as_secs());
+            return Err(remaining);
+        }
+    }
+    Ok(())
+}
+
+fn record_failure(username: &str) {
+    let mut map = login_attempts().lock().unwrap();
+    let rec = map.entry(username.to_string()).or_insert(AttemptRecord {
+        failures: 0,
+        window_start: Instant::now(),
+    });
+    // Reset the counter if the previous window has expired.
+    if rec.window_start.elapsed() >= LOCKOUT_WINDOW {
+        rec.failures = 0;
+        rec.window_start = Instant::now();
+    }
+    rec.failures += 1;
+}
+
+fn clear_failures(username: &str) {
+    login_attempts().lock().unwrap().remove(username);
+}
 
 /// Read the JWT signing secret from the environment.
 /// The server refuses to start (see `main.rs`) if this is unset, so by the time
@@ -133,22 +190,34 @@ pub async fn login(
     State(state): State<Arc<AppState>>,
     Json(body): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, (StatusCode, String)> {
+    // Reject early if this username is temporarily locked out.
+    if let Err(secs) = check_rate_limit(&body.username) {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            format!("Too many failed attempts. Try again in {} seconds.", secs),
+        ));
+    }
+
     let user = sqlx::query_as::<_, UserRow>(
         "SELECT id, username, password_hash, display_name, role FROM users WHERE username = ?"
     )
     .bind(&body.username)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-    .ok_or((StatusCode::UNAUTHORIZED, "Invalid username or password".to_string()))?;
+    .map_err(internal)?;
 
-    // Verify password
-    let valid = bcrypt::verify(&body.password, &user.password_hash)
-        .unwrap_or(false);
+    // Verify password only if the user exists. On any failure, count it and
+    // return the same generic message (don't leak which usernames exist).
+    let user = match user {
+        Some(u) if bcrypt::verify(&body.password, &u.password_hash).unwrap_or(false) => u,
+        _ => {
+            record_failure(&body.username);
+            return Err((StatusCode::UNAUTHORIZED, "Invalid username or password".to_string()));
+        }
+    };
 
-    if !valid {
-        return Err((StatusCode::UNAUTHORIZED, "Invalid username or password".to_string()));
-    }
+    // Successful login — clear the failure counter.
+    clear_failures(&body.username);
 
     // Generate JWT
     let secret = jwt_secret();
@@ -164,7 +233,7 @@ pub async fn login(
         &claims,
         &jsonwebtoken::EncodingKey::from_secret(secret.as_bytes()),
     )
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Token generation failed: {}", e)))?;
+    .map_err(internal)?;
 
     Ok(Json(LoginResponse {
         token,
@@ -182,14 +251,14 @@ pub async fn register(
     let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(internal)?;
 
     if count.0 > 0 {
         return Err((StatusCode::FORBIDDEN, "Registration disabled. Users already exist.".to_string()));
     }
 
     let hash = bcrypt::hash(&body.password, 10)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Hash failed: {}", e)))?;
+        .map_err(internal)?;
 
     sqlx::query("INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, 'admin')")
         .bind(&body.username)
@@ -197,7 +266,7 @@ pub async fn register(
         .bind(&body.username)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(internal)?;
 
     Ok((StatusCode::CREATED, Json(serde_json::json!({ "message": "User created" }))))
 }
@@ -230,7 +299,7 @@ pub async fn me(
     .bind(user_id)
     .fetch_optional(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(internal)?
     .ok_or((StatusCode::UNAUTHORIZED, "User not found".to_string()))?;
 
     Ok(Json(serde_json::json!({
@@ -248,7 +317,7 @@ pub async fn check_setup(
     let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
         .fetch_one(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(internal)?;
 
     Ok(Json(serde_json::json!({ "has_users": count.0 > 0 })))
 }

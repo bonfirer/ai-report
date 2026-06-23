@@ -339,3 +339,107 @@ export interface SnapshotComparison {
   current_key: string;
   previous_key: string;
 }
+
+// ── Email Alerts ──
+export interface SmtpConfig {
+  id: number;
+  host: string;
+  port: number;
+  username: string;
+  password_set: boolean;
+  from_email: string;
+  from_name: string;
+  use_tls: boolean;
+  enabled: boolean;
+}
+
+export interface UpdateSmtpConfigPayload {
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  from_email?: string;
+  from_name?: string;
+  use_tls?: boolean;
+  enabled?: boolean;
+}
+
+export type AlertOperator = 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'ne';
+
+export interface AlertRule {
+  id: number;
+  name: string;
+  metric_pool_id: number;
+  condition_column?: string | null;
+  operator: AlertOperator;
+  threshold: number;
+  recipients: string[];
+  schedule_type: string;
+  cron_expr?: string | null;
+  enabled: boolean;
+  subject_template: string;
+  body_template?: string | null;
+  include_excel: boolean;
+  cooldown_minutes: number;
+  last_run_at?: string | null;
+  next_run_at?: string | null;
+  last_triggered_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreateAlertRulePayload {
+  name: string;
+  metric_pool_id: number;
+  condition_column?: string | null;
+  operator: AlertOperator;
+  threshold: number;
+  recipients: string[];
+  schedule_type: string;
+  cron_expr?: string | null;
+  subject_template?: string;
+  body_template?: string | null;
+  include_excel?: boolean;
+  cooldown_minutes?: number;
+}
+
+export interface UpdateAlertRulePayload {
+  name?: string;
+  condition_column?: string | null;
+  operator?: AlertOperator;
+  threshold?: number;
+  recipients?: string[];
+  schedule_type?: string;
+  cron_expr?: string | null;
+  enabled?: boolean;
+  subject_template?: string;
+  body_template?: string | null;
+  include_excel?: boolean;
+  cooldown_minutes?: number;
+}
+
+export interface AlertLog {
+  id: number;
+  alert_rule_id: number;
+  evaluated_value?: number | null;
+  triggered: boolean;
+  status: string;
+  message?: string | null;
+  error?: string | null;
+  recipients?: string[] | null;
+  created_at?: string;
+}
+
+export interface AlertTemplate {
+  subject_template: string;
+  body_template: string;
+}
+
+export interface GenerateAlertTemplatePayload {
+  metric_pool_id: number;
+  operator: AlertOperator;
+  threshold: number;
+  condition_column?: string | null;
+  instructions?: string;
+  lang?: string;
+}
