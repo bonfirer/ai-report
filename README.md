@@ -21,6 +21,10 @@
 [🏗️ Architecture](#️-architecture) ·
 [📦 Deploy](#-production-deployment)
 
+<br/>
+
+**English** · [简体中文](README.zh-CN.md)
+
 </div>
 
 ---
@@ -33,8 +37,6 @@
 - **Curate a metrics library** that doubles as a knowledge base, grounding the AI in your business definitions.
 - **Generate complete HTML dashboards** with a prompt, refine them conversationally, and keep a full version history.
 - **Stay informed** with scheduled snapshots and threshold-based **email alerts** that ship the data as an Excel attachment.
-
-> 🇨🇳 **中文简介**：接入数据库后，用自然语言对话即可自动生成 SQL 查询、沉淀业务指标库、由大模型一键生成可交互的 HTML 数据看板，并支持版本管理、分享、定时快照，以及按指标阈值触发、AI 自动撰写邮件正文、附带 Excel 数据的**邮件预警**。
 
 ## 🚀 Live demo
 
