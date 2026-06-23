@@ -248,6 +248,7 @@ async fn main() {
     let app = public
         .merge(protected)
         .merge(flexible)
+        .layer(axum::middleware::from_fn(security_headers))
         .layer(TraceLayer::new_for_http())
         .layer(RequestBodyLimitLayer::new(10 * 1024 * 1024)) // 10 MB max body
         .layer(cors)
@@ -268,6 +269,35 @@ async fn main() {
         .with_graceful_shutdown(shutdown_signal())
         .await
         .unwrap();
+}
+
+/// Attach a baseline set of security response headers to every response.
+///
+/// Deliberately conservative so it can't break the SPA, the iframe report
+/// viewer, or the embed feature: it sets only universally-safe headers and
+/// avoids a hard `X-Frame-Options`/CSP that would interfere with embedding.
+async fn security_headers(
+    req: axum::http::Request<axum::body::Body>,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    use axum::http::header::{HeaderName, HeaderValue};
+    let mut res = next.run(req).await;
+    let h = res.headers_mut();
+    let set = |h: &mut axum::http::HeaderMap, name: &'static str, value: &'static str| {
+        h.insert(
+            HeaderName::from_static(name),
+            HeaderValue::from_static(value),
+        );
+    };
+    // Stop browsers from MIME-sniffing responses into an unexpected type.
+    set(h, "x-content-type-options", "nosniff");
+    // Don't leak full URLs (which may carry ?token=) to cross-origin targets.
+    set(h, "referrer-policy", "strict-origin-when-cross-origin");
+    // Disable the legacy XSS auditor (modern guidance; avoids its own bugs).
+    set(h, "x-xss-protection", "0");
+    // Lock down a few powerful browser features by default.
+    set(h, "permissions-policy", "geolocation=(), microphone=(), camera=()");
+    res
 }
 
 async fn shutdown_signal() {

@@ -187,6 +187,12 @@ pub async fn update_feishu(
     };
     let enabled = payload.enabled.unwrap_or(base_enabled);
 
+    // SSRF guard: only allow official Feishu/Lark HTTPS webhook hosts to be saved.
+    if !webhook_url.trim().is_empty() {
+        crate::feishu::validate_webhook_url(&webhook_url)
+            .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    }
+
     sqlx::query(
         "INSERT INTO feishu_config (id, webhook_url, secret, enabled)
          VALUES (1, ?, ?, ?)

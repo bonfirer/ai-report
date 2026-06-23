@@ -314,7 +314,15 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
           </button>
         </form>
 
-        <p className="text-center text-[9px] text-gray-700 mt-6 tracking-wide">Powered by AI · Data Intelligence</p>
+        <p className="text-center text-[9px] text-gray-700 mt-6 tracking-wide">
+          Powered by AI · Ethan ·{' '}
+          <a
+            href="mailto:macrogroot@outlook.com"
+            className="text-gray-600 hover:text-amber-500/80 transition-colors"
+          >
+            macrogroot@outlook.com
+          </a>
+        </p>
       </div>
     </div>
   );

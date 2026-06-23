@@ -18,6 +18,41 @@ use crate::models::FeishuConfig;
 
 type HmacSha256 = Hmac<Sha256>;
 
+/// Apex domains that legitimately host Feishu / Lark custom-bot webhooks.
+/// Any other host is rejected to prevent the webhook from being used as an
+/// SSRF primitive (pointing the server at internal services / metadata).
+const ALLOWED_WEBHOOK_APEX: &[&str] = &["feishu.cn", "larksuite.com", "larkoffice.com"];
+
+/// Validate that a webhook URL is an HTTPS Feishu/Lark endpoint.
+///
+/// This is the SSRF guard for the Feishu channel: it must be `https` and its
+/// host must be (a subdomain of) an official Feishu/Lark domain.
+pub fn validate_webhook_url(url: &str) -> Result<(), String> {
+    let parsed = reqwest::Url::parse(url.trim())
+        .map_err(|_| "Invalid webhook URL".to_string())?;
+
+    if parsed.scheme() != "https" {
+        return Err("Feishu webhook must use https".to_string());
+    }
+
+    let host = parsed
+        .host_str()
+        .ok_or_else(|| "Webhook URL has no host".to_string())?
+        .to_lowercase();
+
+    let allowed = ALLOWED_WEBHOOK_APEX
+        .iter()
+        .any(|apex| host == *apex || host.ends_with(&format!(".{}", apex)));
+
+    if !allowed {
+        return Err(format!(
+            "Webhook host '{}' is not an allowed Feishu/Lark domain",
+            host
+        ));
+    }
+    Ok(())
+}
+
 /// A single key/value line rendered in the alert card body.
 pub struct CardField {
     pub label: String,
@@ -85,6 +120,8 @@ pub async fn send_card(cfg: &FeishuConfig, card: Value) -> Result<(), String> {
     if cfg.webhook_url.trim().is_empty() {
         return Err("Feishu webhook URL is not configured".to_string());
     }
+    // SSRF guard: refuse to send anywhere that isn't an official Feishu/Lark host.
+    validate_webhook_url(&cfg.webhook_url)?;
 
     let mut body = json!({
         "msg_type": "interactive",
@@ -176,5 +213,20 @@ mod tests {
         assert!(s.contains("当前值"));
         assert!(s.contains("42"));
         assert!(s.contains("footer"));
+    }
+
+    #[test]
+    fn webhook_url_ssrf_guard() {
+        // Valid official endpoints.
+        assert!(validate_webhook_url("https://open.feishu.cn/open-apis/bot/v2/hook/abc").is_ok());
+        assert!(validate_webhook_url("https://open.larksuite.com/open-apis/bot/v2/hook/abc").is_ok());
+        // Rejected: non-https.
+        assert!(validate_webhook_url("http://open.feishu.cn/hook/abc").is_err());
+        // Rejected: internal / metadata / arbitrary hosts (SSRF attempts).
+        assert!(validate_webhook_url("https://169.254.169.254/latest/meta-data/").is_err());
+        assert!(validate_webhook_url("https://localhost/hook").is_err());
+        assert!(validate_webhook_url("https://evil.example.com/open-apis/bot/v2/hook/abc").is_err());
+        // Rejected: look-alike domain trying to suffix-match.
+        assert!(validate_webhook_url("https://feishu.cn.evil.com/hook").is_err());
     }
 }

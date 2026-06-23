@@ -332,7 +332,15 @@ pub async fn register(
         return Err((StatusCode::FORBIDDEN, "Registration disabled. Users already exist.".to_string()));
     }
 
-    let hash = bcrypt::hash(&body.password, 10)
+    // Basic input hardening for the initial admin account.
+    if body.username.trim().len() < 3 || body.username.len() > 64 {
+        return Err((StatusCode::BAD_REQUEST, "Username must be 3–64 characters.".to_string()));
+    }
+    if body.password.len() < 8 {
+        return Err((StatusCode::BAD_REQUEST, "Password must be at least 8 characters.".to_string()));
+    }
+
+    let hash = bcrypt::hash(&body.password, 12)
         .map_err(internal)?;
 
     sqlx::query("INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, 'admin')")
