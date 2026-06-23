@@ -130,6 +130,7 @@
       "title": "确认删除报表",
       "message": "确定要删除「{{name}}」吗？此操作不可撤销。"
     },
+    "deleted": "报表已删除",
     "noVisualization": "未配置图表",
     "aiRendered": "AI 已渲染",
     "newReport": "新建报表",

@@ -6,6 +6,7 @@ import LLMConfigProvider from './components/LLMConfigProvider';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import EasterEgg from './components/EasterEgg';
+import Toaster from './components/Toaster';
 import { Sparkle } from '@phosphor-icons/react';
 
 // Lazy-load heavy pages for faster initial load
@@ -59,6 +60,7 @@ export default function App() {
   return (
     <I18nextProvider i18n={i18n}>
       <EasterEgg />
+      <Toaster />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* Public share route — no auth required */}

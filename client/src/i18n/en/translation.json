@@ -130,6 +130,7 @@
       "title": "Delete Report",
       "message": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
     },
+    "deleted": "Report deleted",
     "noVisualization": "No charts configured",
     "aiRendered": "AI Rendered",
     "newReport": "New Report",

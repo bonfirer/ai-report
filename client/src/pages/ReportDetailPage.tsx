@@ -12,6 +12,7 @@ import {
 } from '../lib/api';
 import { ErrorBanner } from '../components/ui';
 import { fetchEmbedToken, getCachedEmbedToken } from '../lib/embedToken';
+import { toast } from '../stores/toastStore';
 
 /// Build a report HTML/data URL with an auth token appended (for iframe loading).
 /// Prefers a short-lived embed token so the long-lived session JWT never lands
@@ -37,7 +38,6 @@ export default function ReportDetailPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [selectedStyleKey, setSelectedStyleKey] = useState<string | null>(null);
   const [showDsModal, setShowDsModal] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<{ id: number; version: number; prompt: string | null; style_key: string | null; created_at: string | null }[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -106,8 +106,7 @@ export default function ReportDetailPage() {
         } else if (st.status === 'failed') {
           stopPolling();
           setAiLoading(false);
-          setToast(st.error || t('reportDetail.aiComposeFailed'));
-          setTimeout(() => setToast(null), 5000);
+          toast.error(st.error || t('reportDetail.aiComposeFailed'));
         }
       } catch {
         // network hiccup — keep polling
@@ -198,8 +197,7 @@ export default function ReportDetailPage() {
       await reportsApi.renderAI(report.id, prompt);
       startPolling(report.id);
     } catch (e) {
-      setToast(e instanceof Error ? e.message : t('reportDetail.aiComposeFailed'));
-      setTimeout(() => setToast(null), 4000);
+      toast.error(e instanceof Error ? e.message : t('reportDetail.aiComposeFailed'));
     }
   };
 
@@ -231,8 +229,7 @@ export default function ReportDetailPage() {
       await reportsApi.renderAI(report.id, prompt);
       startPolling(report.id);
     } catch (e) {
-      setToast(e instanceof Error ? e.message : t('reportDetail.aiComposeFailed'));
-      setTimeout(() => setToast(null), 4000);
+      toast.error(e instanceof Error ? e.message : t('reportDetail.aiComposeFailed'));
     }
   };
 
@@ -240,8 +237,7 @@ export default function ReportDetailPage() {
   const handleAIStop = () => {
     stopPolling();
     setAiLoading(false);
-    setToast(t('reportDetail.generationBackground'));
-    setTimeout(() => setToast(null), 4000);
+    toast.info(t('reportDetail.generationBackground'));
   };
 
   // ── Add metric as datasource ──
@@ -279,8 +275,7 @@ export default function ReportDetailPage() {
       refreshVersion(report.id);
       await fetchEmbedToken();
       if (iframeRef.current) iframeRef.current.src = withToken(`/api/reports/${report.id}/html?t=${Date.now()}`);
-      setToast(t('reportDetail.rollbackSuccess'));
-      setTimeout(() => setToast(null), 3000);
+      toast.success(t('reportDetail.rollbackSuccess'));
     }
   };
 
@@ -289,8 +284,7 @@ export default function ReportDetailPage() {
     const info = await reportsApi.share(report.id, true).catch(() => null);
     if (info) {
       await navigator.clipboard.writeText(window.location.origin + `/api/share/${info.share_token}/html`);
-      setToast(t('reportDetail.shareCopied'));
-      setTimeout(() => setToast(null), 3000);
+      toast.success(t('reportDetail.shareCopied'));
     }
   };
 
@@ -303,13 +297,6 @@ export default function ReportDetailPage() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-obsidian-900 border border-obsidian-700 rounded-lg px-4 py-2.5 shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top duration-200">
-          <span className="text-xs text-gray-200">{toast}</span>
-        </div>
-      )}
-
       {/* ── Top Bar ── */}
       <div className="flex items-center px-5 py-2.5 border-b border-obsidian-700 flex-shrink-0">
         <div className="flex items-center gap-3 flex-1">
@@ -454,8 +441,7 @@ export default function ReportDetailPage() {
                           setReport(fresh);
                           refreshVersion(report.id);
                           if (iframeRef.current) iframeRef.current.src = withToken(`/api/reports/${report.id}/html?t=${Date.now()}`);
-                          setToast(t('reportDetail.versionRestored'));
-                          setTimeout(() => setToast(null), 3000);
+                          toast.success(t('reportDetail.versionRestored'));
                         }}
                         className="text-gray-600 hover:text-amber-500 transition-premium"
                         title={t('reportDetail.restoreVersion')}
@@ -768,15 +754,13 @@ export default function ReportDetailPage() {
                   });
                   if (!res.ok) {
                     setDeleteVersionTarget(null);
-                    setToast(t('errors.deleteFailed'));
-                    setTimeout(() => setToast(null), 3000);
+                    toast.error(t('errors.deleteFailed'));
                     return;
                   }
                   if (compareVersionId === deleteVersionTarget.id) setCompareVersionId(null);
                   setVersions(versions.filter(ver => ver.id !== deleteVersionTarget.id));
                   setDeleteVersionTarget(null);
-                  setToast(t('reportDetail.versionDeleted'));
-                  setTimeout(() => setToast(null), 3000);
+                  toast.success(t('reportDetail.versionDeleted'));
                 }}
                 className="text-xs text-white bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-md transition-premium"
               >

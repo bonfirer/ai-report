@@ -6,6 +6,7 @@ import { reportsApi } from '../lib/api';
 import type { Report } from '../lib/types';
 import { PageHeader, ErrorBanner, EmptyState, ConfirmDialog } from '../components/ui';
 import { fetchEmbedToken } from '../lib/embedToken';
+import { toast } from '../stores/toastStore';
 
 export default function ReportsPage() {
   const { t } = useTranslation();
@@ -48,8 +49,9 @@ export default function ReportsPage() {
       await reportsApi.delete(deleteTarget.id);
       await fetchReports();
       window.dispatchEvent(new Event('reports-updated'));
+      toast.success(t('reports.deleted'));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('errors.deleteFailed'));
+      toast.error(e instanceof Error ? e.message : t('errors.deleteFailed'));
     } finally {
       setDeleteTarget(null);
     }
