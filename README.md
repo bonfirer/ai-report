@@ -1,6 +1,6 @@
 <div align="center">
 
-# 📊 AI Report Platform
+# AI Report Platform
 
 **Connect your databases, talk to your data, and let AI build the dashboards.**
 

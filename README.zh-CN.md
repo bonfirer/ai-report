@@ -1,6 +1,6 @@
 <div align="center">
 
-# 📊 AI Report Platform
+#  AI Report Platform
 
 **接入数据库，与数据对话，让 AI 帮你生成看板。**
 
