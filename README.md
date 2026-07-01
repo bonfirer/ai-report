@@ -2,9 +2,9 @@
 
 # LingxiBI
 
-**Connect your databases, talk to your data, and let AI build the dashboards.**
+**Connect databases. Talk to your data. Let AI build the dashboards.**
 
-<sub>🤖 AI 驱动的数据分析与报表平台 · 自然语言查询 · 指标库 · 一键生成可交互看板 · 多渠道预警（邮件 / 飞书）</sub>
+*灵犀 — intuitive understanding between you and your data.*
 
 <br/>
 
@@ -13,13 +13,11 @@
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](#-quick-start-with-docker-recommended)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![i18n](https://img.shields.io/badge/i18n-EN%20%2F%20中文-9cf)](#-features)
+[![i18n](https://img.shields.io/badge/i18n-EN%20%7C%20中文-9cf)](#-features)
 
-[🚀 Live Demo](#-live-demo) ·
-[⚡ Quick Start](#-quick-start-with-docker-recommended) ·
-[✨ Features](#-features) ·
-[🏗️ Architecture](#️-architecture) ·
-[📦 Deploy](#-production-deployment)
+<br/>
+
+[🚀 Live Demo](#-live-demo) · [⚡ Quick Start](#-quick-start-with-docker-recommended) · [✨ Features](#-features) · [🧠 How It Learns](#-how-it-learns) · [🏗️ Architecture](#️-architecture) · [📦 Deploy](#-production-deployment)
 
 <br/>
 
@@ -31,17 +29,33 @@
 
 ## 💡 Overview
 
-**LingxiBI** (灵犀 — "intuitive understanding") turns a raw database into shareable, interactive dashboards — without writing SQL or wiring up a BI tool. Connect MySQL, PostgreSQL, or Oracle, then:
+**LingxiBI** is a self-learning BI platform that turns raw databases into shareable, interactive dashboards — no SQL required, no traditional BI tool needed.
 
-- **Ask in plain language** and the assistant writes & runs read-only SQL for you.
-- **Curate a metrics library** that doubles as a knowledge base, grounding the AI in your business definitions.
-- **Get smarter over time** — every conversation teaches the assistant your schema's business rules, and the most relevant lessons are recalled on future questions.
-- **Generate complete HTML dashboards** with a prompt, refine them conversationally, and keep a full version history.
-- **Stay informed** with scheduled snapshots and threshold-based **alerts** — delivered to email (with the data attached as Excel) and/or pushed to **Feishu (Lark)** as an interactive card.
+Connect MySQL, PostgreSQL, or Oracle, then:
+
+1. **Ask in plain language** — the AI writes & executes read-only SQL.
+2. **Curate a metrics library** — grounding the AI in your business definitions.
+3. **Get smarter over time** — every conversation teaches the system your schema's business rules.
+4. **Generate HTML dashboards** — refine them conversationally, with full version history.
+5. **Stay informed** — threshold alerts via email (Excel attached) and/or Feishu interactive cards.
+
+<br/>
+
+<div align="center">
+  <img src="client/public/report.png" alt="AI-generated dashboard" width="720" />
+  <br/><sub>▲ AI-generated interactive dashboard with ECharts visualizations</sub>
+</div>
+
+<br/>
+
+<div align="center">
+  <img src="client/public/data.png" alt="Data conversation" width="720" />
+  <br/><sub>▲ Natural language conversations with your data</sub>
+</div>
+
+---
 
 ## 🚀 Live demo
-
-Try it without installing anything:
 
 <table>
   <tr><td>🌐 <b>URL</b></td><td><a href="https://www.termiio.com:9528">https://www.termiio.com:9528</a></td></tr>
@@ -49,106 +63,121 @@ Try it without installing anything:
   <tr><td>🔑 <b>Password</b></td><td><code>admin123</code></td></tr>
 </table>
 
-> ⚠️ Shared public demo — please don't enter real credentials or sensitive data, and note that data may be reset periodically. If the site uses a self-signed certificate, your browser may show a security warning you'll need to accept.
+> ⚠️ Shared public demo — don't enter real credentials or sensitive data. Data may be reset periodically.
+
+---
 
 ## ✨ Features
 
-| | Capability | What it does |
+| | Capability | Description |
 |---|---|---|
-| 🔌 | **Data sources** | Connect MySQL, PostgreSQL, or Oracle; introspect schemas and visualize table relationships as a knowledge graph. |
-| 💬 | **AI conversations** | Ask questions in natural language; the assistant writes and runs **read-only** SQL, auto-fixes failed queries, and explains results. Generation runs server-side, so it continues even if you navigate away. |
-| ⭐ | **Metrics library** | Save validated queries as named business metrics. The library doubles as a knowledge base that keeps the AI consistent with your definitions. |
-| 📊 | **AI dashboards** | Generate complete, responsive HTML dashboards (ECharts) from your data, refine them conversationally, and keep a full **version history** with rollback. |
-| 🔗 | **Sharing** | Publish reports via unguessable share links, with public/private control. |
-| 📸 | **Snapshots** | Schedule periodic metric snapshots for trend, YoY, and MoM comparisons. |
-| 🔔 | **Alerts** | Set threshold rules on metrics; when triggered, an **AI-generated** email goes out on your schedule with the metric data attached as an **Excel** file. |
-| 🪶 | **Feishu / Lark** | Push the same alerts to a Feishu group as an interactive message **card** via a custom-bot webhook (with optional **HMAC-SHA256** signing). Each rule can use email, Feishu, or both. |
-| 🧠 | **Self-learning knowledge** | After every conversation it distills **new** business knowledge (field meanings, table relationships, query patterns, rules) into a per-datasource knowledge base; 👍'd answers become few-shot examples. All of it is **ranked by relevance** and fed back into future SQL generation — so it sharpens the more you use it. |
-| 🌍 | **Internationalization** | English and Chinese UI out of the box. |
-| 🔐 | **Authentication** | JWT-based auth with first-run admin setup and login rate-limiting. |
+| 🔌 | **Multi-source connectivity** | MySQL · PostgreSQL · Oracle — auto-introspect schemas, visualize relationships as a knowledge graph |
+| 💬 | **AI conversations** | Natural-language queries → read-only SQL, auto-fix, server-side streaming (survives navigation) |
+| ⭐ | **Metrics library** | Named, validated business metrics — doubles as an AI knowledge base |
+| 📊 | **AI dashboards** | One-prompt generation of responsive ECharts HTML dashboards, conversational refinement, version history + rollback |
+| 🧠 | **Self-learning** | Auto-extracts business knowledge per datasource; 👍'd answers become few-shot examples; relevance-ranked recall |
+| 📸 | **Snapshots** | Scheduled metric snapshots for trend / YoY / MoM analysis |
+| 🔔 | **Multi-channel alerts** | Threshold rules → AI-generated email (with Excel) and/or Feishu card (HMAC-SHA256 signed) |
+| 🔗 | **Sharing** | Unguessable share links with publish/draft control |
+| 🌍 | **i18n** | English + Chinese out of the box |
+| 🔐 | **Security** | JWT auth, login rate-limiting, SQL allowlist validator, SSRF protection, security headers |
+
+---
 
 ## 🧠 How it learns
 
-Most text-to-SQL tools forget everything between questions. LingxiBI instead **accumulates business knowledge about your specific database** and feeds it back into every answer — so it gets sharper the more your team uses it. This compounding, per-datasource memory is what sets the platform apart from a raw "ask-a-model" wrapper.
+Most text-to-SQL tools are stateless — they forget everything between questions. LingxiBI **accumulates per-datasource business knowledge** and feeds it back into every answer. The more your team uses it, the more accurate it becomes.
 
-```
-  You ─ ask / 👍 like ─▶  Conversation
-                              │  background: extract NEW business knowledge
-                              ▼
-  Learned context (per data source)
-    • Knowledge base — field meanings · relations · rules · query patterns
-    • 👍 Few-shot examples
-    • Curated metrics library
-                              │  relevance-ranked + token-budgeted
-                              ▼
-  Grounded SQL generation ─▶  better answers, the more you use it
+```mermaid
+flowchart TD
+    A(["🧑 You — ask / 👍 like"]) --> B["💬 Conversation\n(WebSocket streaming)"]
+    B --> C["⚙️ Background task:\nextract NEW business knowledge"]
+    C --> D[("📚 Learned Context\n(per datasource)")]
+    D --> E["🎯 Relevance-ranked +\ntoken-budgeted selection"]
+    E --> F["✨ Grounded SQL generation\n→ better answers over time"]
+    F -.->|"feeds next"| B
+
+    D --- K1["🔗 Knowledge base\nrelations · rules · field meanings"]
+    D --- K2["👍 Few-shot examples"]
+    D --- K3["⭐ Curated metrics library"]
+    D --- K4["📊 Column profiles\nenums · ranges · samples"]
 ```
 
-- **Automatic extraction** — after each turn, a background task asks the LLM to distill only *new* knowledge, de-duplicated against what's already known, and stores it per data source (with a confidence level).
-- **Human-in-the-loop** — 👍 a good answer to save it as a few-shot example the model follows next time.
-- **Curated metrics** — validated, named metrics act as high-trust, reusable definitions.
-- **Relevance-ranked recall** — on each new question, the most relevant knowledge, examples, and metrics are selected (weighted by confidence and clamped to a token budget) and injected into the prompt, keeping answers grounded without bloating context.
+**Key mechanisms:**
+
+- **Auto-extraction** — after each turn, the LLM distills only *new* knowledge (deduplicated, with confidence levels)
+- **Human feedback** — 👍 saves Q&A pairs as few-shot examples for future queries
+- **Curated metrics** — validated SQL with business-meaningful names, reused as trusted definitions
+- **Smart recall** — ranked by keyword relevance × confidence, clamped to a token budget
+
+---
 
 ## 🛠️ Tech stack
 
 | Layer | Technology |
 |-------|------------|
-| 🦀 **Backend** | Rust · [axum](https://github.com/tokio-rs/axum) · [sqlx](https://github.com/launchbadge/sqlx) · [tokio](https://tokio.rs/) |
+| 🦀 **Backend** | Rust · [Axum](https://github.com/tokio-rs/axum) · [SQLx](https://github.com/launchbadge/sqlx) · [Tokio](https://tokio.rs/) |
 | 🗄️ **Metadata DB** | MySQL / MariaDB |
-| 🎯 **Analyzed sources** | MySQL · PostgreSQL · Oracle |
-| 🤖 **LLM** | Any OpenAI-compatible API (DeepSeek, OpenAI, …) |
-| 📧 **Email / files** | SMTP via [lettre](https://github.com/lettre/lettre) · Excel via [rust_xlsxwriter](https://github.com/jmcnamara/rust_xlsxwriter) |
-| 💬 **Notifications** | Feishu (Lark) custom-bot webhook with optional HMAC-SHA256 signing |
+| 🎯 **Data sources** | MySQL · PostgreSQL · Oracle |
+| 🤖 **LLM** | Any OpenAI-compatible API (DeepSeek, GPT-4o, Qwen, …) |
+| 📧 **Delivery** | SMTP ([lettre](https://github.com/lettre/lettre)) · Excel ([rust_xlsxwriter](https://github.com/jmcnamara/rust_xlsxwriter)) · Feishu webhook (HMAC-SHA256) |
 | ⚛️ **Frontend** | React 19 · Vite · TypeScript · Tailwind CSS · Zustand · React Router |
+
+---
 
 ## 🏗️ Architecture
 
-```
-                    ┌──────────────────────────────────────────────┐
-   Browser ─HTTPS─▶ │  Nginx                                        │
-                    │   ├─ /        →  Static SPA (client/dist)      │
-                    │   └─ /api/*   →  Rust API server (axum :3001)  │
-                    └───────────────────────┬──────────────────────┘
-                                             │
-            ┌────────────────────────────────┼────────────────────────────────┐
-            ▼                                ▼                                 ▼
-   MySQL / MariaDB                  Your data sources                  LLM provider
-   (platform metadata)             (MySQL · PG · Oracle)            (OpenAI-compatible)
-            ▲                                                                  
-            │                                                                  
-   Background schedulers ──────┬───▶ SMTP server      (alert emails + Excel)
-   (snapshots · alerts)        └───▶ Feishu webhook    (interactive cards)
+```mermaid
+flowchart TD
+    Browser["🌐 Browser"] -->|HTTPS| Nginx["Nginx :9528"]
+    
+    Nginx -->|"/"| SPA["⚛️ Static SPA\n(client/dist)"]
+    Nginx -->|"/api/*"| API["🦀 Rust API\n(Axum :3001)"]
+    Nginx -->|"/api/chat"| WS["🔌 WebSocket"]
+
+    API --> MetaDB[("🗄️ MySQL/MariaDB\nMetadata DB")]
+    API --> DS["🎯 Data Sources\nMySQL · PG · Oracle"]
+    API --> LLM["🤖 LLM Provider\nOpenAI-compatible"]
+
+    MetaDB --> Scheduler["⏰ Background Schedulers"]
+    Scheduler --> Snap["📸 Snapshots"]
+    Scheduler --> Alerts["🔔 Alerts"]
+    Alerts --> SMTP["📧 SMTP\nemail + Excel"]
+    Alerts --> Feishu["🪶 Feishu\ninteractive card"]
 ```
 
-The API server is stateless apart from the metadata database; the SPA talks to it through a same-origin `/api` prefix (including a WebSocket at `/api/chat`). Two background schedulers run inside the server process — one for metric **snapshots**, one for **alerts** — both claiming due work atomically so they're safe to run as multiple instances. A triggered alert is delivered to every channel enabled on its rule (email and/or Feishu), and each channel's outcome is recorded independently so a partial failure stays visible.
+**Design principles:**
+
+- **Stateless API** — only the metadata DB holds state; horizontally scalable
+- **Atomic scheduling** — background jobs claim work atomically; safe for multi-instance
+- **Multi-channel delivery** — each alert rule can target email, Feishu, or both; outcomes are recorded independently
+- **Security-first** — SQL allowlist validator, SSRF guards on webhooks, bcrypt-12, security response headers
+
+---
 
 ## ⚡ Quick start with Docker (recommended)
-
-The fastest way to run the whole stack (database + API + web UI):
 
 ```bash
 docker compose up -d --build
 ```
 
-Then open **<http://localhost:9528>** and create the first admin account. No Rust/Node toolchain or manual database setup required.
-
-**What you get:**
+Open **http://localhost:9528** → create the first admin account. Done.
 
 | Service | Role |
 |---------|------|
-| 🗄️ `db` | MySQL metadata store (kept internal, not exposed to the host) |
-| 🦀 `server` | Rust API (internal `:3001`; a strong `JWT_SECRET` is generated & persisted on first run) |
-| 🌐 `web` | Nginx serving the SPA + proxying `/api` (incl. chat WebSocket), published on **:9528** |
-
-To customize ports, passwords, or CORS, copy `.env.example` → `.env` and edit before running. Migrations run automatically on server startup.
+| `db` | MySQL metadata store (internal only) |
+| `server` | Rust API on `:3001` (auto-generates JWT_SECRET on first run) |
+| `web` | Nginx on `:9528` — SPA + API proxy (incl. WebSocket) |
 
 ```bash
 docker compose logs -f server     # follow API logs
-docker compose down               # stop (keeps data volumes)
-docker compose down -v            # stop and wipe all data
+docker compose down               # stop (preserves data)
+docker compose down -v            # stop + wipe all data
 ```
 
-> 🛡️ **Production:** set strong `MYSQL_*` passwords and a real `CORS_ALLOWED_ORIGIN` in `.env`, and terminate TLS behind your own reverse proxy / load balancer.
+> 🛡️ **Production:** set strong passwords in `.env`, set `CORS_ALLOWED_ORIGIN` to your real domain, and terminate TLS upstream.
+
+---
 
 ## 💻 Local development
 
@@ -156,122 +185,124 @@ docker compose down -v            # stop and wipe all data
 <summary><b>Prerequisites</b></summary>
 
 - [Rust](https://rustup.rs/) (stable)
-- [Node.js](https://nodejs.org/) 18+
+- [Node.js](https://nodejs.org/) ≥ 18
 - MySQL or MariaDB
 
 </details>
 
-**1. Create the metadata database**
-
-```sql
-CREATE DATABASE ai_report CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-**2. Configure and run the server**
-
 ```bash
+# 1. Create metadata database
+mysql -e "CREATE DATABASE ai_report CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+# 2. Start the API server
 cd server
-cp .env.example .env        # then edit DATABASE_URL and JWT_SECRET
-cargo run                   # migrations run automatically; listens on :3001
-```
+cp .env.example .env   # edit DATABASE_URL + JWT_SECRET
+cargo run              # migrations auto-run, listening on :3001
 
-**3. Run the client**
-
-```bash
+# 3. Start the frontend
 cd client
-npm install
-npm run dev                 # Vite dev server proxies /api to the Rust server
+npm install && npm run dev   # Vite proxies /api → :3001
 ```
 
-Open the printed local URL, create the first admin account, then add a data source and configure your LLM provider in **Settings**.
+Open the printed URL, create admin, add a data source, configure your LLM in **Settings**.
+
+---
 
 ## ⚙️ Configuration
 
-Server configuration lives in `server/.env` (see `server/.env.example`):
-
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | Connection string for the metadata database. |
-| `JWT_SECRET` | Secret for signing auth tokens (**min. 16 chars**). |
-| `CORS_ALLOWED_ORIGIN` | Allowed origin, or `*` for development. |
+| `DATABASE_URL` | Metadata DB connection string |
+| `JWT_SECRET` | Auth token signing key (≥ 16 chars) |
+| `CORS_ALLOWED_ORIGIN` | Allowed origin (`*` for dev only) |
 
-> The LLM provider, API key, model, and notification settings (SMTP and Feishu webhook) are configured at runtime in the app (Settings / Alerts) and stored in the database — no environment variable needed.
+> LLM provider, SMTP, and Feishu webhook are configured in-app at runtime (stored in DB, not env vars).
+
+---
 
 ## 📦 Production deployment
 
-Helper scripts under `scripts/` automate a Linux deployment (systemd + Nginx):
-
 ```bash
-# One-time, on the server (installs toolchain, DB, Nginx, builds, configures TLS):
+# One-time server setup (Rust, MySQL, Nginx, TLS):
 bash scripts/setup-server.sh [domain]
 
-# From your machine, for each release:
+# Deploy from your machine:
 ./scripts/deploy.sh user@host [domain]
 ```
 
-The Rust binary is built on the target host to avoid glibc/architecture mismatches; the SPA is built locally and served as static files by Nginx, which also reverse-proxies `/api` (including the chat WebSocket) to the API server. See the scripts for the full, commented workflow.
+Rust binary is built on the target host (no glibc mismatch). SPA is built locally and served as static files.
 
-> 💡 Prefer containers? The Docker Compose setup above also works in production behind your own TLS-terminating proxy.
+> 💡 Docker Compose also works for production behind your own TLS proxy.
+
+---
 
 ## 🗂️ Project structure
 
 ```
-ai-report/
-├── client/                 # React + Vite SPA
+lingxibi/
+├── client/                  React + Vite SPA
 │   └── src/
-│       ├── pages/          # route-level pages
-│       ├── components/     # shared UI
-│       ├── stores/         # Zustand state
-│       ├── lib/            # API client & types
-│       └── i18n/           # en / zh translations
-├── server/                 # Rust (axum) API
+│       ├── pages/           Route-level views
+│       ├── components/      Shared UI components
+│       ├── stores/          Zustand state management
+│       ├── lib/             API client, types
+│       └── i18n/            EN / ZH translations
+├── server/                  Rust (Axum) API
 │   ├── src/
-│   │   ├── routes/         # HTTP / WS handlers
-│   │   ├── llm/            # LLM client & prompts
-│   │   ├── alert_engine.rs # alert evaluation & multi-channel delivery
-│   │   ├── email.rs        # SMTP delivery (lettre)
-│   │   ├── feishu.rs       # Feishu (Lark) webhook delivery
+│   │   ├── routes/          HTTP + WebSocket handlers
+│   │   ├── llm/             LLM client + prompt engineering
+│   │   ├── alert_engine.rs  Alert evaluation + multi-channel delivery
+│   │   ├── feishu.rs        Feishu webhook + HMAC signing
+│   │   ├── email.rs         SMTP delivery
 │   │   └── ...
-│   └── migrations/         # SQL migrations (run on startup)
-├── docs/                   # design notes
-├── scripts/                # deployment scripts
-├── docker-compose.yml      # one-command stack
-└── .env.example            # compose configuration
+│   └── migrations/          SQL migrations (auto-run)
+├── scripts/                 Deployment automation
+├── docker-compose.yml       One-command full stack
+└── .env.example             Environment template
 ```
+
+---
 
 ## 🔒 Security
 
-- 🔑 **Auth** — JWT-signed sessions; the server refuses to start without a strong `JWT_SECRET`. Login is rate-limited against brute force.
-- 🛡️ **Read-only by design** — user/AI SQL passes an allowlist validator (only `SELECT`/`SHOW`/`DESCRIBE`/`EXPLAIN`/CTEs) and runs with per-query timeouts and row caps.
-- 🙈 **Secret handling** — datasource/LLM credentials and notification secrets (SMTP password, Feishu signing secret) are never returned by the API.
-- 📣 **Reporting a vulnerability** — please report security issues privately to **[macrogroot@outlook.com](mailto:macrogroot@outlook.com)** rather than opening a public issue.
+| Layer | Mechanism |
+|-------|-----------|
+| **Auth** | JWT sessions, bcrypt-12, login rate-limiting (5 attempts / 5 min lockout) |
+| **SQL safety** | Lexical allowlist validator (SELECT/SHOW/DESCRIBE/EXPLAIN/CTE only), per-query timeout (30s), row cap (50k) |
+| **SSRF protection** | Feishu webhook URL restricted to official domains only |
+| **Response headers** | `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` |
+| **Secret handling** | Credentials never returned by API; passwords masked in responses |
 
-> Treat the metadata database as sensitive: it stores connection credentials. Run it on a trusted host and restrict network access.
+> 📣 Report vulnerabilities privately to **[macrogroot@outlook.com](mailto:macrogroot@outlook.com)** — not via public issues.
+
+---
 
 ## 🗺️ Roadmap
 
-- [ ] **Embedding-based semantic retrieval** for the knowledge base & examples (today they're ranked by keyword relevance)
-- [ ] Feishu **Bitable (Base)** sync — write metric/alert records into a multi-dimensional table
+- [ ] Embedding-based semantic retrieval for knowledge base & examples
+- [ ] Feishu Bitable (Base) sync
 - [ ] More notification channels (DingTalk, WeChat Work, Slack)
-- [ ] Encryption-at-rest for stored credentials (opt-in via key)
-- [ ] Optional Oracle support as a build feature + slimmer default image
-- [ ] Published multi-arch Docker images (GHCR) on tagged releases
-- [ ] `SECURITY.md`, `CHANGELOG.md`, and expanded test coverage
+- [ ] Encryption-at-rest for stored credentials
+- [ ] Multi-arch Docker images (GHCR) on tagged releases
+- [ ] `SECURITY.md` + `CHANGELOG.md`
 - [ ] More chart types & dashboard templates
+
+---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow, coding conventions, and PR guidelines.
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow and guidelines.
 
 ## 📬 Contact
 
-Questions, ideas, or feedback? Reach out:
-
-- 📧 **Email** — [macrogroot@outlook.com](mailto:macrogroot@outlook.com)
-- 🐛 **Bugs & features** — open an [issue](../../issues)
+- 📧 [macrogroot@outlook.com](mailto:macrogroot@outlook.com)
+- 🐛 [Open an issue](../../issues)
 
 ## 📄 License
 
-Released under the [MIT License](LICENSE) © 2026 Macro.
+[MIT License](LICENSE) © 2026 Macro
 
-<div align="center"><sub>Built with 🦀 Rust and ⚛️ React.</sub></div>
+<div align="center">
+<br/>
+<sub>Built with 🦀 Rust and ⚛️ React · Powered by AI · Ethan</sub>
+</div>
