@@ -293,7 +293,7 @@ function RuleEditor({
   const [aiBusy, setAiBusy] = useState(false);
   const [aiInstructions, setAiInstructions] = useState('');
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
-  const [previewMode, setPreviewMode] = useState(false);
+  const [previewMode, setPreviewMode] = useState(true);
 
   // Columns available from the selected metric's cached result.
   const columns = useMemo(() => {
