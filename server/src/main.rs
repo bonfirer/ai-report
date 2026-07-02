@@ -87,6 +87,7 @@ async fn main() {
     run_migrations(&pool, include_str!("../migrations/021_email_alerts.sql")).await;
     run_migrations(&pool, include_str!("../migrations/022_feishu_alerts.sql")).await;
     run_migrations(&pool, include_str!("../migrations/023_report_themes.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/024_report_summaries.sql")).await;
 
     let state = Arc::new(AppState {
         db: pool,
@@ -140,6 +141,8 @@ async fn main() {
         .route("/api/reports/{id}", get(routes::reports::get_one))
         .route("/api/reports/{id}/render", post(routes::reports::render))
         .route("/api/reports/{id}/status", get(routes::reports::get_status))
+        .route("/api/reports/{id}/summary", get(routes::reports::get_summary))
+        .route("/api/reports/{id}/summary", post(routes::reports::generate_summary))
         .route("/api/reports/{id}", delete(routes::reports::delete))
         .route("/api/reports/{id}/move", put(routes::report_groups::move_report))
         .route("/api/reports/{id}/publish", put(routes::reports::publish))

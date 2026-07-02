@@ -81,6 +81,7 @@ Connect MySQL, PostgreSQL, or Oracle, then:
 | ⭐ | **Metrics library** | Named, validated business metrics — doubles as an AI knowledge base |
 | 📊 | **AI dashboards** | One-prompt generation of responsive ECharts HTML dashboards, conversational refinement, version history + rollback |
 | 🎨 | **Saved themes** | Save a report's visual style (colors, typography, chart styling) as a reusable theme, then generate new dashboards in that style with one click |
+| 💡 | **AI data summary** | One-click narrative analysis of a report — headline, key findings, trends, anomalies & recommendations — grounded in the data, snapshot deltas, and your knowledge base (cached, regenerable) |
 | 🧠 | **Self-learning** | Auto-extracts business knowledge per datasource; 👍'd answers become few-shot examples; relevance-ranked recall |
 | 📸 | **Snapshots** | Scheduled metric snapshots for trend / YoY / MoM analysis |
 | 🔔 | **Multi-channel alerts** | Threshold rules → AI-generated email (with Excel) and/or Feishu card (HMAC-SHA256 signed) |

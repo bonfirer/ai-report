@@ -205,6 +205,20 @@
       "applyPrefix": "Strictly follow the \"{{name}}\" theme's visual style. On top of that:",
       "applyDefault": "Regenerate the full dashboard from the current data, strictly following the \"{{name}}\" theme's visual style and layout."
     },
+    "summary": {
+      "button": "AI Insights",
+      "title": "AI Data Summary",
+      "generate": "Generate",
+      "regenerate": "Regenerate",
+      "generating": "AI is analyzing the data…",
+      "emptyHint": "Let AI analyze this report's data — key findings, trends, anomalies, and recommendations.",
+      "failed": "Failed to generate summary",
+      "updatedAt": "Updated",
+      "highlights": "Key findings",
+      "trends": "Trends",
+      "anomalies": "Anomalies & risks",
+      "recommendations": "Recommendations"
+    },
     "noVersions": "No version history yet",
     "restoreVersion": "Restore this version",
     "versionRestored": "Restored to selected version",

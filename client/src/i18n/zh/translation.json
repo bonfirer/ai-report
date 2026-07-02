@@ -205,6 +205,20 @@
       "applyPrefix": "严格沿用「{{name}}」主题的视觉风格。在此基础上：",
       "applyDefault": "严格沿用「{{name}}」主题的视觉风格与排版，基于当前数据重新生成完整看板。"
     },
+    "summary": {
+      "button": "AI 分析",
+      "title": "AI 数据分析总结",
+      "generate": "生成分析",
+      "regenerate": "重新生成",
+      "generating": "AI 正在分析数据…",
+      "emptyHint": "让 AI 分析当前报表数据，输出关键发现、趋势、异常与行动建议。",
+      "failed": "分析生成失败",
+      "updatedAt": "更新于",
+      "highlights": "关键发现",
+      "trends": "趋势",
+      "anomalies": "异常与风险",
+      "recommendations": "行动建议"
+    },
     "noVersions": "暂无历史版本",
     "restoreVersion": "恢复此版本",
     "versionRestored": "已恢复到选中版本",

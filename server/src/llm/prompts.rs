@@ -278,7 +278,40 @@ pub fn knowledge_extraction_prompt(schema_context: &str, existing_knowledge: &st
     )
 }
 
-/// System prompt for generating an email alert template (subject + HTML body).
+/// System prompt for generating a data-analysis summary for a report.
+/// The model must return a JSON object matching `DataSummary`.
+pub fn data_summary_prompt(data_context: &str, lang: &str) -> String {
+    let lang_line = if lang == "en" {
+        "Write ALL text in English."
+    } else {
+        "所有文本用简体中文。"
+    };
+    format!(
+        r#"You are a senior data analyst. Analyze the report data below and produce a concise, insightful summary for a business audience.
+
+## Data & Context
+{}
+
+## CRITICAL RULES
+1. Base EVERY statement strictly on the data/context provided above. NEVER invent, estimate, or fabricate numbers, trends, or facts.
+2. When you cite a figure, use the EXACT value from the data. If a comparison/trend is only supported when snapshot deltas are provided, only then describe the trend; otherwise do not claim a trend.
+3. If the data is insufficient for a section, return an empty array for it rather than guessing.
+4. Prefer specific, quantified statements ("revenue 1.2M, +14% MoM") over vague ones ("things improved").
+5. Use business language grounded in the provided knowledge base / metric definitions where relevant.
+6. {}
+
+## Output format
+Return ONLY a JSON object (no markdown fences, no commentary) with this exact shape:
+{{
+  "headline": "one-sentence key takeaway",
+  "highlights": ["2-5 concrete, number-backed key findings"],
+  "trends": ["trend observations; tie to snapshot deltas when provided; [] if unsupported"],
+  "anomalies": ["outliers, risks, or data-quality caveats; [] if none"],
+  "recommendations": ["1-4 actionable next steps"]
+}}"#,
+        data_context, lang_line
+    )
+}
 /// The model must return a JSON object: { "subject_template", "body_template" }.
 /// Both fields may contain {{placeholders}} that the alert engine fills at send time.
 pub fn alert_template_prompt(metric_context: &str, condition_desc: &str, lang: &str) -> String {

@@ -275,6 +275,33 @@ export const reportThemesApi = {
     request<void>(`/report-themes/${id}`, { method: 'DELETE' }),
 };
 
+// ── AI Data Summary ──
+
+export interface DataSummary {
+  headline: string;
+  highlights: string[];
+  trends: string[];
+  anomalies: string[];
+  recommendations: string[];
+}
+
+export interface ReportSummaryResponse {
+  summary: DataSummary | null;
+  model?: string;
+  lang?: string;
+  updated_at?: string | null;
+}
+
+export const reportSummaryApi = {
+  get: (reportId: number) =>
+    request<ReportSummaryResponse>(`/reports/${reportId}/summary`),
+  generate: (reportId: number, lang?: string) =>
+    request<ReportSummaryResponse>(`/reports/${reportId}/summary`, {
+      method: 'POST',
+      body: JSON.stringify({ lang: lang ?? 'zh' }),
+    }),
+};
+
 // ── Report Groups ──
 
 export const reportGroupsApi = {

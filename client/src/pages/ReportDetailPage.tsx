@@ -4,11 +4,11 @@ import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, Sparkle, PaperPlaneRight, ShareNetwork, Upload,
   Plus, Database, Star, X, Stop, Clock, ArrowClockwise, CaretDown, ArrowCounterClockwise,
-  Desktop, DeviceMobile, ClockCounterClockwise, Trash, Palette,
+  Desktop, DeviceMobile, ClockCounterClockwise, Trash, Palette, Lightbulb,
 } from '@phosphor-icons/react';
 import {
-  reportsApi, metricsApi, metricGroupsApi, reportThemesApi,
-  type Report, type ReportDataSource, type MetricPool, type MetricGroup, type ReportTheme,
+  reportsApi, metricsApi, metricGroupsApi, reportThemesApi, reportSummaryApi,
+  type Report, type ReportDataSource, type MetricPool, type MetricGroup, type ReportTheme, type DataSummary,
 } from '../lib/api';
 import { ErrorBanner } from '../components/ui';
 import { fetchEmbedToken, getCachedEmbedToken } from '../lib/embedToken';
@@ -24,7 +24,7 @@ function withToken(path: string): string {
 }
 
 export default function ReportDetailPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -46,6 +46,11 @@ export default function ReportDetailPage() {
   const [themes, setThemes] = useState<ReportTheme[]>([]);
   const [showThemes, setShowThemes] = useState(false);
   const [showSaveTheme, setShowSaveTheme] = useState(false);
+  // AI data-analysis summary
+  const [showSummary, setShowSummary] = useState(false);
+  const [summary, setSummary] = useState<DataSummary | null>(null);
+  const [summaryUpdatedAt, setSummaryUpdatedAt] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [currentVersion, setCurrentVersion] = useState<number | null>(null);
   const [compareVersionId, setCompareVersionId] = useState<number | null>(null);
   const [deleteVersionTarget, setDeleteVersionTarget] = useState<{ id: number; version: number } | null>(null);
@@ -294,6 +299,32 @@ export default function ReportDetailPage() {
     }
   };
 
+  // ── AI data-analysis summary ──
+  const toggleSummary = async () => {
+    const next = !showSummary;
+    setShowSummary(next);
+    if (next && report && !summary) {
+      try {
+        const res = await reportSummaryApi.get(report.id);
+        if (res.summary) { setSummary(res.summary); setSummaryUpdatedAt(res.updated_at ?? null); }
+      } catch { /* silent */ }
+    }
+  };
+
+  const handleGenerateSummary = async () => {
+    if (!report) return;
+    setSummaryLoading(true);
+    try {
+      const res = await reportSummaryApi.generate(report.id, i18n.language);
+      setSummary(res.summary);
+      setSummaryUpdatedAt(res.updated_at ?? null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('reportDetail.summary.failed'));
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
   // Stop watching the generation (server task continues in background)
   const handleAIStop = () => {
     stopPolling();
@@ -440,6 +471,13 @@ export default function ReportDetailPage() {
             <ShareNetwork size={11} /> {t('reportDetail.share')}
           </button>
           <button
+            onClick={toggleSummary}
+            className={`flex items-center gap-1 text-[10px] border px-2.5 py-1.5 rounded-md transition-premium ${showSummary ? 'text-amber-500 border-amber-500/30 bg-amber-500/5' : 'text-gray-400 hover:text-gray-200 border-obsidian-700'}`}
+            title={t('reportDetail.summary.title')}
+          >
+            <Lightbulb size={11} /> {t('reportDetail.summary.button')}
+          </button>
+          <button
             onClick={async () => {
               setShowVersions(!showVersions);
               if (!showVersions && report) {
@@ -458,6 +496,62 @@ export default function ReportDetailPage() {
 
       {/* ── HTML Preview (iframe) ── */}
       <div className="flex-1 overflow-hidden bg-obsidian-950 relative flex flex-row">
+
+        {/* AI Summary Drawer (right side) */}
+        {showSummary && (
+          <div className="w-80 bg-obsidian-900 border-l border-obsidian-700 flex flex-col flex-shrink-0 order-2">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-obsidian-700">
+              <span className="text-[11px] text-gray-300 font-medium flex items-center gap-1.5">
+                <Lightbulb size={13} className="text-amber-500" /> {t('reportDetail.summary.title')}
+              </span>
+              <button onClick={() => setShowSummary(false)} aria-label={t('common.close')} className="text-gray-500 hover:text-gray-300"><X size={12} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto scrollbar-thin p-3">
+              {summaryLoading ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-3">
+                  <div className="relative w-7 h-7">
+                    <div className="absolute inset-0 border-2 border-amber-500/20 rounded-full" />
+                    <div className="absolute inset-0 border-2 border-transparent border-t-amber-500 rounded-full animate-spin" />
+                  </div>
+                  <span className="text-[10px] text-gray-500">{t('reportDetail.summary.generating')}</span>
+                </div>
+              ) : summary ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-gray-100 font-medium leading-relaxed bg-amber-500/5 border border-amber-500/15 rounded-lg p-2.5">
+                    {summary.headline}
+                  </p>
+                  <SummarySection title={t('reportDetail.summary.highlights')} items={summary.highlights} color="text-data-green" />
+                  <SummarySection title={t('reportDetail.summary.trends')} items={summary.trends} color="text-amber-500" />
+                  <SummarySection title={t('reportDetail.summary.anomalies')} items={summary.anomalies} color="text-red-400" />
+                  <SummarySection title={t('reportDetail.summary.recommendations')} items={summary.recommendations} color="text-blue-400" />
+                  {summaryUpdatedAt && (
+                    <p className="text-[8px] text-gray-600 pt-1">
+                      {t('reportDetail.summary.updatedAt')}: {new Date(summaryUpdatedAt).toLocaleString()}
+                    </p>
+                  )}
+                  <button
+                    onClick={handleGenerateSummary}
+                    className="w-full flex items-center justify-center gap-1.5 text-[10px] text-gray-300 border border-obsidian-700 hover:border-amber-500/30 hover:text-amber-500 py-1.5 rounded-md transition-premium"
+                  >
+                    <ArrowClockwise size={11} /> {t('reportDetail.summary.regenerate')}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 px-2 text-center gap-3">
+                  <Lightbulb size={28} className="text-amber-500/30" />
+                  <p className="text-[10px] text-gray-500">{t('reportDetail.summary.emptyHint')}</p>
+                  <button
+                    onClick={handleGenerateSummary}
+                    disabled={datasources.length === 0}
+                    className="flex items-center gap-1.5 text-[10px] text-[#08080c] bg-amber-500 hover:bg-amber-400 font-semibold px-3 py-1.5 rounded-md transition-premium disabled:opacity-40"
+                  >
+                    <Sparkle size={11} weight="fill" /> {t('reportDetail.summary.generate')}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Version History Drawer (right side) */}
         {showVersions && (
@@ -916,6 +1010,24 @@ export default function ReportDetailPage() {
     </div>
   );
 }
+// ── AI summary section (bulleted list; hidden when empty) ──
+function SummarySection({ title, items, color }: { title: string; items: string[]; color: string }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div>
+      <span className={`text-[9px] font-semibold uppercase tracking-wide ${color}`}>{title}</span>
+      <ul className="mt-1 space-y-1">
+        {items.map((it, i) => (
+          <li key={i} className="text-[11px] text-gray-300 leading-relaxed flex gap-1.5">
+            <span className={`${color} flex-shrink-0`}>•</span>
+            <span>{it}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function LoadingMessages({ t }: { t: (k: string) => string }) {
   const [msgIndex, setMsgIndex] = useState(0);
   const messages = [

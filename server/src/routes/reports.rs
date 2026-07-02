@@ -957,3 +957,216 @@ pub async fn restore_version(
 
     Ok(Json(report))
 }
+
+// ── AI Data Summary ──
+
+/// Build the grounding context for a report summary: the report's data rows
+/// (truncated), recent metric snapshots (for trend), and relevant knowledge-base
+/// entries (for business context).
+async fn build_summary_context(
+    state: &AppState,
+    report: &Report,
+) -> Result<String, (StatusCode, String)> {
+    let report_ds: Vec<ReportDataSource> = sqlx::query_as::<_, ReportDataSource>(
+        "SELECT * FROM report_datasources WHERE report_id = ?",
+    )
+    .bind(report.id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(crate::routes::internal_error)?;
+
+    if report_ds.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "This report has no data sources to analyze yet.".to_string(),
+        ));
+    }
+
+    let mut ctx = format!("Report title: {}\n\n", report.title);
+    let mut ds_ids: Vec<i32> = Vec::new();
+
+    for ds in &report_ds {
+        ctx.push_str(&format!("### Dataset: {}\nSQL: {}\n", ds.name, ds.sql_query));
+        if let Some(cache) = &ds.result_cache {
+            if let Some(rows) = cache.as_array() {
+                ctx.push_str(&format!("Row count: {}\n", rows.len()));
+                let json_str = serde_json::to_string(cache).unwrap_or_default();
+                if json_str.len() < 6000 {
+                    ctx.push_str(&format!("Data (JSON):\n{}\n", json_str));
+                } else {
+                    let trunc: Vec<&serde_json::Value> = rows.iter().take(50).collect();
+                    ctx.push_str(&format!(
+                        "Data (first 50 rows):\n{}\n",
+                        serde_json::to_string(&trunc).unwrap_or_default()
+                    ));
+                }
+            }
+        }
+        if !ds_ids.contains(&ds.datasource_id) {
+            ds_ids.push(ds.datasource_id);
+        }
+
+        // Trend context: recent snapshots for metric-backed datasources.
+        if let Some(metric_id) = ds.metric_id {
+            let snaps: Vec<(String, String, Option<serde_json::Value>)> = sqlx::query_as(
+                "SELECT period_key, DATE_FORMAT(snapshot_at, '%Y-%m-%d %H:%i') AS at, result_data \
+                 FROM metric_snapshots WHERE metric_pool_id = ? ORDER BY snapshot_at DESC LIMIT 6",
+            )
+            .bind(metric_id)
+            .fetch_all(&state.db)
+            .await
+            .unwrap_or_default();
+
+            if !snaps.is_empty() {
+                ctx.push_str("Recent snapshots (newest first — use these for trend/YoY/MoM):\n");
+                for (period_key, at, data) in &snaps {
+                    let mut compact = data
+                        .as_ref()
+                        .map(|d| serde_json::to_string(d).unwrap_or_default())
+                        .unwrap_or_default();
+                    if compact.len() > 400 {
+                        compact = compact.chars().take(400).collect::<String>() + "…";
+                    }
+                    ctx.push_str(&format!("- [{} @ {}] {}\n", period_key, at, compact));
+                }
+            }
+        }
+        ctx.push('\n');
+    }
+
+    // Business context: knowledge-base entries for the involved data sources.
+    let mut kb_lines: Vec<String> = Vec::new();
+    for ds_id in &ds_ids {
+        let entries: Vec<(String, String, String)> = sqlx::query_as(
+            "SELECT category, title, content FROM knowledge_base WHERE datasource_id = ? ORDER BY category LIMIT 10",
+        )
+        .bind(ds_id)
+        .fetch_all(&state.db)
+        .await
+        .unwrap_or_default();
+        for (cat, title, content) in entries {
+            kb_lines.push(format!("- [{}] {}: {}", cat, title, content));
+            if kb_lines.len() >= 15 {
+                break;
+            }
+        }
+        if kb_lines.len() >= 15 {
+            break;
+        }
+    }
+    if !kb_lines.is_empty() {
+        ctx.push_str("### Business knowledge (definitions & rules to respect)\n");
+        ctx.push_str(&kb_lines.join("\n"));
+        ctx.push('\n');
+    }
+
+    Ok(ctx)
+}
+
+/// GET the cached AI summary for a report (if any).
+pub async fn get_summary(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let row: Option<(serde_json::Value, String, String, Option<chrono::DateTime<chrono::Utc>>)> =
+        sqlx::query_as(
+            "SELECT summary, model, lang, updated_at FROM report_summaries WHERE report_id = ?",
+        )
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(crate::routes::internal_error)?;
+
+    match row {
+        Some((summary, model, lang, updated_at)) => Ok(Json(serde_json::json!({
+            "summary": summary,
+            "model": model,
+            "lang": lang,
+            "updated_at": updated_at,
+        }))),
+        None => Ok(Json(serde_json::json!({ "summary": null }))),
+    }
+}
+
+/// POST — (re)generate the AI data summary for a report and cache it.
+pub async fn generate_summary(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+    Json(body): Json<GenerateSummaryRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let report = sqlx::query_as::<_, Report>("SELECT * FROM reports WHERE id = ?")
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(crate::routes::internal_error)?
+        .ok_or((StatusCode::NOT_FOUND, "Report not found".to_string()))?;
+
+    let llm_cfg = sqlx::query_as::<_, LLMConfig>("SELECT * FROM llm_config WHERE id = 1")
+        .fetch_optional(&state.db)
+        .await
+        .map_err(crate::routes::internal_error)?
+        .ok_or((StatusCode::BAD_REQUEST, "LLM not configured".to_string()))?;
+    if llm_cfg.api_key.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "LLM API key not configured".to_string()));
+    }
+
+    let lang = body.lang.unwrap_or_else(|| "zh".to_string());
+    let data_context = build_summary_context(&state, &report).await?;
+    let system = prompts::data_summary_prompt(&data_context, &lang);
+
+    let client = LlmClient::new(llm_cfg.base_url, llm_cfg.api_key, llm_cfg.model);
+    use crate::llm::ChatMessage;
+    let messages = vec![ChatMessage {
+        role: "user".into(),
+        content: "Generate the data analysis summary now.".to_string(),
+        reasoning_content: None,
+    }];
+
+    let start = std::time::Instant::now();
+    let result = client
+        .generate_json::<DataSummary>(&messages, &system, llm_cfg.max_tokens.max(2048), llm_cfg.temperature)
+        .await;
+    let duration_ms = start.elapsed().as_millis() as u64;
+
+    match result {
+        Ok(summary) => {
+            let summary_json = serde_json::to_value(&summary).unwrap_or(serde_json::json!({}));
+            crate::ai_log::log_ai_request(
+                &state.db, "data_summary", &client.model,
+                duration_ms, "success", None,
+                Some(&format!("report_id={}", id)),
+                Some(&system),
+                Some(&serde_json::to_string(&summary).unwrap_or_default()),
+            ).await;
+
+            let _ = sqlx::query(
+                "INSERT INTO report_summaries (report_id, summary, model, lang) VALUES (?, ?, ?, ?) \
+                 ON DUPLICATE KEY UPDATE summary = VALUES(summary), model = VALUES(model), \
+                 lang = VALUES(lang), updated_at = CURRENT_TIMESTAMP",
+            )
+            .bind(id)
+            .bind(&summary_json)
+            .bind(&client.model)
+            .bind(&lang)
+            .execute(&state.db)
+            .await;
+
+            Ok(Json(serde_json::json!({
+                "summary": summary_json,
+                "model": client.model,
+                "lang": lang,
+                "updated_at": chrono::Utc::now(),
+            })))
+        }
+        Err(e) => {
+            crate::ai_log::log_ai_request(
+                &state.db, "data_summary", &client.model,
+                duration_ms, "failed", Some(&e),
+                Some(&format!("report_id={}", id)),
+                Some(&system),
+                None,
+            ).await;
+            Err((StatusCode::BAD_GATEWAY, format!("AI summary failed: {}", e)))
+        }
+    }
+}

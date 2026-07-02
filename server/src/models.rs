@@ -243,6 +243,34 @@ pub struct CreateReportThemeRequest {
     pub sample_html: Option<String>,
 }
 
+// ── AI Data Summary ──
+
+/// Structured AI analysis of a report's data. Produced by the LLM as JSON and
+/// cached in `report_summaries`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataSummary {
+    /// One-sentence key takeaway.
+    pub headline: String,
+    /// KPI-style findings backed by concrete numbers.
+    #[serde(default)]
+    pub highlights: Vec<String>,
+    /// Trend observations (tied to snapshot deltas where available).
+    #[serde(default)]
+    pub trends: Vec<String>,
+    /// Outliers, risks, or data-quality caveats.
+    #[serde(default)]
+    pub anomalies: Vec<String>,
+    /// Actionable next steps.
+    #[serde(default)]
+    pub recommendations: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GenerateSummaryRequest {
+    /// UI language code ("zh" / "en"); controls the summary language.
+    pub lang: Option<String>,
+}
+
 // ── Report Groups ──
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
