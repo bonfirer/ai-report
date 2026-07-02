@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="client/public/rlogo.png" alt="LingxiBI logo" width="120" />
+
 # 灵犀BI · LingxiBI
 
 **接入数据库，与数据对话，让 AI 为你构建看板。**

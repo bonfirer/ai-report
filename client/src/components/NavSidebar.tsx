@@ -41,8 +41,8 @@ export default function NavSidebar() {
   return (
     <nav aria-label={t('nav.mainNav')} className="w-[52px] bg-obsidian-950 border-r border-obsidian-700 flex flex-col items-center py-3 gap-1 flex-shrink-0">
       {/* Logo */}
-      <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center mb-4 flex-shrink-0">
-        <span className="text-[#08080c] text-xs font-extrabold tracking-tighter">R</span>
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-4 flex-shrink-0 overflow-hidden">
+        <img src="/logo.png" alt="LingxiBI" className="w-full h-full object-contain" />
       </div>
 
       {/* Nav Items */}

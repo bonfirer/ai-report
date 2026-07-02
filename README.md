@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="client/public/rlogo.png" alt="LingxiBI logo" width="120" />
+
 # LingxiBI
 
 **Connect databases. Talk to your data. Let AI build the dashboards.**
