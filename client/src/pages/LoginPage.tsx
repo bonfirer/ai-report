@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Sparkle } from '@phosphor-icons/react';
 
 const BASE = '/api';
 
@@ -259,8 +258,8 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
         <div className="text-center mb-8">
           <div className="relative inline-flex items-center justify-center">
             <div className="absolute w-16 h-16 rounded-full bg-amber-500/10 blur-2xl animate-pulse" />
-            <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.3)]">
-              <Sparkle size={28} className="text-[#08080c]" weight="fill" />
+            <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.3)] overflow-hidden">
+              <img src="/logo.png" alt="LingxiBI" className="w-full h-full object-contain" />
             </div>
           </div>
           <h1 className="text-2xl font-bold text-gray-50 mt-5 tracking-tight">LingxiBI</h1>
