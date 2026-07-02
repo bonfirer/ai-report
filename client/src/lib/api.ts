@@ -212,8 +212,12 @@ export const reportsApi = {
   get: (id: number) => request<Report>(`/reports/${id}`),
   create: (payload: CreateReportPayload) =>
     request<Report>('/reports', { method: 'POST', body: JSON.stringify(payload) }),
-  renderAI: (id: number, prompt: string, signal?: AbortSignal) =>
-    request<Report>(`/reports/${id}/render`, { method: 'POST', body: JSON.stringify({ prompt }), signal }),
+  renderAI: (id: number, prompt: string, themeId?: number | null, signal?: AbortSignal) =>
+    request<Report>(`/reports/${id}/render`, {
+      method: 'POST',
+      body: JSON.stringify({ prompt, theme_id: themeId ?? null }),
+      signal,
+    }),
   getStatus: (id: number) =>
     request<{ status: string; error: string | null; updated_at: string | null }>(`/reports/${id}/status`),
   delete: (id: number) =>
@@ -239,6 +243,36 @@ export const reportsApi = {
     request<Report>(`/reports/${reportId}/refresh-interval`, { method: 'PUT', body: JSON.stringify({ refresh_interval: interval }) }),
   updateStyle: (reportId: number, styleKey: string | null) =>
     request<Report>(`/reports/${reportId}/style`, { method: 'PUT', body: JSON.stringify({ style_key: styleKey }) }),
+};
+
+// ── Report Themes (user-curated, reusable dashboard styles) ──
+
+export interface ReportTheme {
+  id: number;
+  name: string;
+  description: string;
+  style_prompt?: string | null;
+  emoji: string;
+  source_report_id?: number | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreateReportThemePayload {
+  name: string;
+  description?: string;
+  style_prompt?: string | null;
+  emoji?: string;
+  source_report_id?: number | null;
+  sample_html?: string | null;
+}
+
+export const reportThemesApi = {
+  list: () => request<ReportTheme[]>('/report-themes'),
+  create: (payload: CreateReportThemePayload) =>
+    request<ReportTheme>('/report-themes', { method: 'POST', body: JSON.stringify(payload) }),
+  delete: (id: number) =>
+    request<void>(`/report-themes/${id}`, { method: 'DELETE' }),
 };
 
 // ── Report Groups ──

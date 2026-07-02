@@ -6,6 +6,7 @@ pub mod query;
 pub mod reports;
 pub mod report_groups;
 pub mod report_datasources;
+pub mod report_themes;
 pub mod metric_groups;
 pub mod metric_pools;
 pub mod llm_config;

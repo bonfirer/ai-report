@@ -4,11 +4,11 @@ import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, Sparkle, PaperPlaneRight, ShareNetwork, Upload,
   Plus, Database, Star, X, Stop, Clock, ArrowClockwise, CaretDown, ArrowCounterClockwise,
-  Desktop, DeviceMobile, ClockCounterClockwise, Trash,
+  Desktop, DeviceMobile, ClockCounterClockwise, Trash, Palette,
 } from '@phosphor-icons/react';
 import {
-  reportsApi, metricsApi, metricGroupsApi,
-  type Report, type ReportDataSource, type MetricPool, type MetricGroup,
+  reportsApi, metricsApi, metricGroupsApi, reportThemesApi,
+  type Report, type ReportDataSource, type MetricPool, type MetricGroup, type ReportTheme,
 } from '../lib/api';
 import { ErrorBanner } from '../components/ui';
 import { fetchEmbedToken, getCachedEmbedToken } from '../lib/embedToken';
@@ -42,6 +42,10 @@ export default function ReportDetailPage() {
   const [versions, setVersions] = useState<{ id: number; version: number; prompt: string | null; style_key: string | null; created_at: string | null }[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<{ id: number; version: number; prompt: string | null; created_at: string | null }[]>([]);
+  // Saved themes (user-curated reusable dashboard styles)
+  const [themes, setThemes] = useState<ReportTheme[]>([]);
+  const [showThemes, setShowThemes] = useState(false);
+  const [showSaveTheme, setShowSaveTheme] = useState(false);
   const [currentVersion, setCurrentVersion] = useState<number | null>(null);
   const [compareVersionId, setCompareVersionId] = useState<number | null>(null);
   const [deleteVersionTarget, setDeleteVersionTarget] = useState<{ id: number; version: number } | null>(null);
@@ -230,6 +234,63 @@ export default function ReportDetailPage() {
       startPolling(report.id);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('reportDetail.aiComposeFailed'));
+    }
+  };
+
+  // One-click "generate a full dashboard". If the user has typed a request,
+  // treat it as the highest-priority requirement layered on the default layout;
+  // otherwise fall back to the standard cockpit template. Honors the selected style.
+  const handleQuickGenerate = () => {
+    if (!report) return;
+    const base = '生成一个专业的数据驾驶舱，顶部KPI卡片，中间趋势图和对比图，底部明细';
+    const extra = aiInput.trim();
+    let prompt = extra
+      ? `${base}。\n\n【用户的具体要求 — 最高优先级，必须优先满足；与上述默认布局冲突时以此为准】：${extra}`
+      : base;
+    if (selectedStyleKey) {
+      const style = DOCK_STYLES.find((s) => s.key === selectedStyleKey);
+      if (style) prompt = `[保持当前风格: ${style.label}] ${prompt}`;
+    }
+    setAiInput('');
+    handleAISendPrompt(prompt);
+  };
+
+  // ── Saved themes ──
+  const loadThemes = useCallback(async () => {
+    try {
+      setThemes(await reportThemesApi.list());
+    } catch { /* silent */ }
+  }, []);
+
+  const toggleThemes = async () => {
+    const next = !showThemes;
+    setShowThemes(next);
+    if (next) await loadThemes();
+  };
+
+  // Generate the current report using a saved theme.
+  const handleUseTheme = async (theme: ReportTheme) => {
+    if (!report) return;
+    setShowThemes(false);
+    const extra = aiInput.trim();
+    const prompt = extra
+      ? `${t('reportDetail.themes.applyPrefix', { name: theme.name })} ${extra}`
+      : t('reportDetail.themes.applyDefault', { name: theme.name });
+    setAiInput('');
+    try {
+      await reportsApi.renderAI(report.id, prompt, theme.id);
+      startPolling(report.id);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('reportDetail.aiComposeFailed'));
+    }
+  };
+
+  const handleDeleteTheme = async (themeId: number) => {
+    try {
+      await reportThemesApi.delete(themeId);
+      setThemes((prev) => prev.filter((th) => th.id !== themeId));
+    } catch {
+      toast.error(t('errors.deleteFailed'));
     }
   };
 
@@ -606,7 +667,7 @@ export default function ReportDetailPage() {
           {/* Right: one-click generate */}
           {!aiLoading && (
             <button
-              onClick={() => handleAISendPrompt('生成一个专业的数据驾驶舱，顶部KPI卡片，中间趋势图和对比图，底部明细')}
+              onClick={handleQuickGenerate}
               disabled={aiLoading || datasources.length === 0}
               className="flex items-center gap-1.5 text-[10px] text-[#08080c] bg-amber-500 hover:bg-amber-400 font-semibold px-3 py-2 rounded-lg whitespace-nowrap transition-premium disabled:opacity-40 active:translate-y-[1px] flex-shrink-0"
             >
@@ -614,6 +675,72 @@ export default function ReportDetailPage() {
               {t('reportDetail.quickActions.generate')}
             </button>
           )}
+
+          {/* Right: saved themes */}
+          <div className="relative flex-shrink-0">
+            <button
+              onClick={toggleThemes}
+              title={t('reportDetail.themes.title')}
+              className={`flex items-center justify-center w-9 h-9 rounded-lg border transition-premium ${
+                showThemes
+                  ? 'text-amber-500 border-amber-500/40 bg-amber-500/10'
+                  : 'text-gray-400 border-obsidian-700 hover:text-amber-500 hover:border-amber-500/30'
+              }`}
+            >
+              <Palette size={15} />
+            </button>
+            {showThemes && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setShowThemes(false)} />
+                <div className="absolute bottom-full right-0 mb-2 z-40 w-80 bg-obsidian-900 border border-obsidian-700 rounded-xl shadow-2xl overflow-hidden">
+                  <div className="px-3 py-2 border-b border-obsidian-700 flex items-center gap-2">
+                    <Palette size={13} className="text-amber-500" />
+                    <span className="text-[11px] text-gray-300 font-medium">{t('reportDetail.themes.title')}</span>
+                    <button
+                      onClick={() => { setShowThemes(false); setShowSaveTheme(true); }}
+                      disabled={!hasHtml}
+                      className="ml-auto flex items-center gap-1 text-[9px] text-amber-500 hover:text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded disabled:opacity-40"
+                      title={t('reportDetail.themes.saveCurrentHint')}
+                    >
+                      <Plus size={10} /> {t('reportDetail.themes.saveCurrent')}
+                    </button>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto scrollbar-thin py-1">
+                    {themes.length === 0 ? (
+                      <p className="text-[10px] text-gray-600 text-center py-5 italic">{t('reportDetail.themes.empty')}</p>
+                    ) : (
+                      themes.map((th) => (
+                        <div
+                          key={th.id}
+                          className="w-full flex items-start gap-2 px-3 py-2 hover:bg-obsidian-800 transition-premium group border-b border-obsidian-800/60 last:border-0"
+                        >
+                          <button
+                            onClick={() => handleUseTheme(th)}
+                            className="flex items-start gap-2 flex-1 text-left min-w-0"
+                            title={t('reportDetail.themes.useHint')}
+                          >
+                            <span className="text-base leading-none mt-0.5">{th.emoji}</span>
+                            <span className="min-w-0">
+                              <span className="block text-[11px] text-gray-200 group-hover:text-amber-500 font-medium truncate">{th.name}</span>
+                              {th.description && <span className="block text-[9px] text-gray-500 truncate">{th.description}</span>}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTheme(th.id)}
+                            className="text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-premium flex-shrink-0 mt-0.5"
+                            title={t('common.delete')}
+                            aria-label={t('common.delete')}
+                          >
+                            <Trash size={11} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Right: ask history */}
           <div className="relative flex-shrink-0">
@@ -736,6 +863,16 @@ export default function ReportDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Save Theme Modal */}
+      {showSaveTheme && report && (
+        <SaveThemeModal
+          reportId={report.id}
+          t={t}
+          onClose={() => setShowSaveTheme(false)}
+          onSaved={(th) => { setThemes((prev) => [th, ...prev]); setShowSaveTheme(false); toast.success(t('reportDetail.themes.saved')); }}
+        />
       )}
 
       {/* Delete Version Confirmation Modal */}
@@ -928,6 +1065,108 @@ function StyleDock({ selectedKey, onSelect }: { selectedKey: string | null; onSe
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// ── Save-current-report-as-theme modal ──
+const THEME_EMOJIS = ['🎨', '🖤', '💚', '🌌', '🔵', '👔', '🟣', '💎', '🌅', '🌿', '📜', '🎬'];
+
+function SaveThemeModal({
+  reportId,
+  t,
+  onClose,
+  onSaved,
+}: {
+  reportId: number;
+  t: (k: string, o?: Record<string, unknown>) => string;
+  onClose: () => void;
+  onSaved: (theme: ReportTheme) => void;
+}) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [stylePrompt, setStylePrompt] = useState('');
+  const [emoji, setEmoji] = useState('🎨');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!name.trim()) { setErr(t('reportDetail.themes.nameRequired')); return; }
+    setBusy(true);
+    try {
+      // source_report_id makes the backend capture the report's current HTML as
+      // the theme's reference template.
+      const theme = await reportThemesApi.create({
+        name: name.trim(),
+        description: description.trim(),
+        style_prompt: stylePrompt.trim() || null,
+        emoji,
+        source_report_id: reportId,
+      });
+      onSaved(theme);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : t('errors.saveFailed'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const labelCls = 'block text-[11px] font-medium text-gray-400 mb-1';
+  const inputCls = 'w-full bg-obsidian-800 border border-obsidian-700 rounded-md px-2.5 py-1.5 text-xs text-gray-200 focus:border-amber-500/50 focus:outline-none';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="bg-obsidian-900 border border-obsidian-700 rounded-xl p-5 w-[420px] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-gray-100 flex items-center gap-2">
+            <Palette size={16} className="text-amber-500" />
+            {t('reportDetail.themes.saveTitle')}
+          </h3>
+          {err && <span className="text-[11px] px-2 py-1 rounded bg-red-500/10 text-red-400">{err}</span>}
+        </div>
+
+        <p className="text-[10px] text-gray-500 mb-3">{t('reportDetail.themes.saveHint')}</p>
+
+        <div className="space-y-3">
+          <div className="flex gap-3">
+            <div>
+              <label className={labelCls}>{t('reportDetail.themes.emoji')}</label>
+              <div className="flex flex-wrap gap-1 w-24">
+                {THEME_EMOJIS.map((e) => (
+                  <button
+                    key={e}
+                    onClick={() => setEmoji(e)}
+                    className={`w-6 h-6 rounded flex items-center justify-center text-sm transition-premium ${emoji === e ? 'bg-amber-500/20 ring-1 ring-amber-500/50' : 'hover:bg-obsidian-800'}`}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className={labelCls}>{t('reportDetail.themes.name')}</label>
+              <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder={t('reportDetail.themes.namePlaceholder')} maxLength={120} autoFocus />
+              <label className={`${labelCls} mt-2`}>{t('reportDetail.themes.description')}</label>
+              <input className={inputCls} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('reportDetail.themes.descPlaceholder')} maxLength={200} />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>{t('reportDetail.themes.stylePrompt')}</label>
+            <textarea className={`${inputCls} h-16 resize-none`} value={stylePrompt} onChange={(e) => setStylePrompt(e.target.value)} placeholder={t('reportDetail.themes.stylePromptPlaceholder')} />
+            <p className="text-[9px] text-gray-600 mt-1">{t('reportDetail.themes.stylePromptHint')}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 mt-5">
+          <button onClick={onClose} className="text-xs text-gray-400 hover:text-gray-200 px-3 py-1.5 rounded-md border border-obsidian-700 transition-premium">
+            {t('common.cancel')}
+          </button>
+          <button onClick={handleSave} disabled={busy} className="text-xs text-[#08080c] bg-amber-500 hover:bg-amber-400 px-4 py-1.5 rounded-md font-semibold disabled:opacity-50 transition-premium">
+            {t('common.save')}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

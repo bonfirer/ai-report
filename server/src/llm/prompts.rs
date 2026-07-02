@@ -162,6 +162,38 @@ Chart palette: [--accent, --accent-2, --accent-3, --text-dim] reused consistentl
     )
 }
 
+/// System prompt for generating a dashboard in a saved user theme.
+///
+/// Reuses the full base dashboard prompt (so all data-honesty, live-refresh,
+/// responsiveness and output rules are preserved) and layers the theme on top
+/// as the highest-priority visual directive.
+pub fn html_theme_prompt(
+    data_context: &str,
+    style_prompt: Option<&str>,
+    sample_html: Option<&str>,
+) -> String {
+    let base = html_dashboard_prompt(data_context);
+    let mut theme = String::from(
+        "\n\n## 🎨 THEME TO APPLY — HIGHEST PRIORITY (overrides the default design tokens)\n\
+         Generate the dashboard in the saved theme described below. Match its visual design system EXACTLY — color palette, typography, spacing rhythm, card/surface style, and chart styling. This theme OVERRIDES the default \"Obsidian\" style tokens above. All DATA rules still fully apply (never fabricate data).\n",
+    );
+    if let Some(sp) = style_prompt {
+        if !sp.trim().is_empty() {
+            theme.push_str(&format!("\n### Style guidance\n{}\n", sp.trim()));
+        }
+    }
+    if let Some(html) = sample_html {
+        if !html.trim().is_empty() {
+            theme.push_str(
+                "\n### Reference template\nReplicate the VISUAL STYLE of the reference dashboard below — reuse its CSS design tokens (`:root` variables), layout structure, card styling, and chart theming. Do NOT copy its data or hard-coded numbers; use the real data provided above.\n\n```html\n",
+            );
+            theme.push_str(html.trim());
+            theme.push_str("\n```\n");
+        }
+    }
+    format!("{}{}", base, theme)
+}
+
 /// System prompt for iteratively refining an existing HTML dashboard.
 pub fn html_refine_prompt(current_html: &str, data_context: &str) -> String {
     format!(

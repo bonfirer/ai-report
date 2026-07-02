@@ -113,6 +113,20 @@ pub async fn render(
         .ok_or((StatusCode::NOT_FOUND, "Report not found".to_string()))?;
 
     if let Some(prompt) = body.prompt.clone() {
+        // Optionally load a saved theme to generate in (full row incl. sample_html).
+        let theme = if let Some(theme_id) = body.theme_id {
+            sqlx::query_as::<_, ReportTheme>(
+                "SELECT id, name, description, style_prompt, sample_html, emoji, \
+                 source_report_id, created_at, updated_at FROM report_themes WHERE id = ?",
+            )
+            .bind(theme_id)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(crate::routes::internal_error)?
+        } else {
+            None
+        };
+
         // Mark as generating and kick off a background task.
         // This allows the client to navigate away without interrupting generation.
         sqlx::query("UPDATE reports SET generation_status = 'generating', generation_error = NULL WHERE id = ?")
@@ -124,7 +138,7 @@ pub async fn render(
         let state_clone = Arc::clone(&state);
         let report_clone = report.clone();
         tokio::spawn(async move {
-            match generate_html_dashboard(&state_clone, &report_clone, &prompt).await {
+            match generate_html_dashboard(&state_clone, &report_clone, &prompt, theme.as_ref()).await {
                 Ok(html) => {
                     let _ = sqlx::query(
                         "UPDATE reports SET html_content = ?, generation_status = 'done', generation_error = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
@@ -217,6 +231,7 @@ async fn generate_html_dashboard(
     state: &AppState,
     report: &Report,
     prompt: &str,
+    theme: Option<&ReportTheme>,
 ) -> Result<String, (StatusCode, String)> {
     // Load LLM config
     let llm_cfg = sqlx::query_as::<_, LLMConfig>("SELECT * FROM llm_config WHERE id = 1")
@@ -294,8 +309,15 @@ async fn generate_html_dashboard(
         data_context = format!("No pre-computed data available. Here is the database schema — generate sample/mock data for the visualization:\n{}", schema_context);
     }
 
-    // Choose prompt based on whether we're refining or creating
-    let system = if let Some(existing_html) = &report.html_content {
+    // Choose prompt: a selected theme takes precedence (generates in that theme);
+    // otherwise refine an existing dashboard, or create a fresh one.
+    let system = if let Some(theme) = theme {
+        prompts::html_theme_prompt(
+            &data_context,
+            theme.style_prompt.as_deref(),
+            theme.sample_html.as_deref(),
+        )
+    } else if let Some(existing_html) = &report.html_content {
         if !existing_html.is_empty() {
             prompts::html_refine_prompt(existing_html, &data_context)
         } else {

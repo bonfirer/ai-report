@@ -86,6 +86,7 @@ async fn main() {
     run_migrations(&pool, include_str!("../migrations/020_conversation_generation_status.sql")).await;
     run_migrations(&pool, include_str!("../migrations/021_email_alerts.sql")).await;
     run_migrations(&pool, include_str!("../migrations/022_feishu_alerts.sql")).await;
+    run_migrations(&pool, include_str!("../migrations/023_report_themes.sql")).await;
 
     let state = Arc::new(AppState {
         db: pool,
@@ -157,6 +158,10 @@ async fn main() {
         .route("/api/report-groups", post(routes::report_groups::create))
         .route("/api/report-groups/{id}", put(routes::report_groups::update))
         .route("/api/report-groups/{id}", delete(routes::report_groups::remove))
+        // Report Themes (user-curated, reusable dashboard styles)
+        .route("/api/report-themes", get(routes::report_themes::list))
+        .route("/api/report-themes", post(routes::report_themes::create))
+        .route("/api/report-themes/{id}", delete(routes::report_themes::delete))
         .route("/api/metric-groups", get(routes::metric_groups::list))
         .route("/api/metric-groups", post(routes::metric_groups::create))
         .route("/api/metric-groups/{id}", put(routes::metric_groups::update))

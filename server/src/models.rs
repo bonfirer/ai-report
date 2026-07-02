@@ -209,6 +209,38 @@ pub struct VisConfig {
 pub struct RenderRequest {
     pub prompt: Option<String>,
     pub config: Option<ReportRenderConfig>,
+    /// Optional saved theme to generate the dashboard in.
+    pub theme_id: Option<i32>,
+}
+
+// ── Report Themes ──
+
+/// A user-curated, reusable dashboard theme.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ReportTheme {
+    pub id: i32,
+    pub name: String,
+    pub description: String,
+    pub style_prompt: Option<String>,
+    /// Reference HTML template. Omitted from list responses to keep them light.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sample_html: Option<String>,
+    pub emoji: String,
+    pub source_report_id: Option<i32>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateReportThemeRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub style_prompt: Option<String>,
+    pub emoji: Option<String>,
+    /// If set, capture this report's current HTML as the theme's sample template.
+    pub source_report_id: Option<i32>,
+    /// Explicit sample HTML (overrides source_report_id capture when provided).
+    pub sample_html: Option<String>,
 }
 
 // ── Report Groups ──
