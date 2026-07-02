@@ -164,6 +164,22 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
     }
   }, []);
 
+  // The login screen is a dark, branded full-screen experience with no theme
+  // toggle. Force dark mode while it's mounted so light-theme users don't see
+  // washed-out white-on-white text, then restore their preference on unmount.
+  useEffect(() => {
+    const root = document.documentElement;
+    const wasLight = root.classList.contains('light');
+    root.classList.remove('light');
+    root.classList.add('dark');
+    return () => {
+      if (wasLight) {
+        root.classList.add('light');
+        root.classList.remove('dark');
+      }
+    };
+  }, []);
+
   useEffect(() => {
     fetch(`${BASE}/auth/check`)
       .then((r) => r.json())

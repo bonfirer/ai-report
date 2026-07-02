@@ -127,6 +127,11 @@
     "title": "报表",
     "description": "查看和管理已生成的报表",
     "startConversation": "新建分析",
+    "createReport": "新建报表",
+    "createTitle": "新建报表",
+    "createHint": "先起个名字创建空白报表，进入后添加数据并让 AI 生成看板。",
+    "reportName": "报表名称",
+    "createAndOpen": "创建并打开",
     "deleteConfirm": {
       "title": "确认删除报表",
       "message": "确定要删除「{{name}}」吗？此操作不可撤销。"

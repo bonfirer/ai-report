@@ -127,6 +127,11 @@
     "title": "Reports",
     "description": "View and manage your generated reports",
     "startConversation": "New Analysis",
+    "createReport": "New Report",
+    "createTitle": "Create a report",
+    "createHint": "Name a blank report to create it, then add data and let AI build the dashboard.",
+    "reportName": "Report name",
+    "createAndOpen": "Create & open",
     "deleteConfirm": {
       "title": "Delete Report",
       "message": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChartBar, Trash, ArrowRight, Clock, ChatCircle } from '@phosphor-icons/react';
+import { ChartBar, Trash, ArrowRight, Clock, ChatCircle, Plus, X } from '@phosphor-icons/react';
 import { reportsApi } from '../lib/api';
 import type { Report } from '../lib/types';
 import { PageHeader, ErrorBanner, EmptyState, ConfirmDialog } from '../components/ui';
@@ -15,6 +15,9 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Report | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const fetchReports = useCallback(async () => {
     try {
@@ -57,6 +60,22 @@ export default function ReportsPage() {
     }
   };
 
+  const handleCreate = async () => {
+    if (!newTitle.trim() || creating) return;
+    setCreating(true);
+    try {
+      const r = await reportsApi.create({ title: newTitle.trim(), pool_ids: [] });
+      window.dispatchEvent(new Event('reports-updated'));
+      setShowCreate(false);
+      setNewTitle('');
+      navigate(`/reports/${r.id}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('errors.saveFailed'));
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const timeAgo = (dateStr?: string) => {
     if (!dateStr) return '';
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -74,13 +93,22 @@ export default function ReportsPage() {
         title={t('reports.title')}
         description={t('reports.description')}
         action={
-          <button
-            onClick={() => navigate('/conversations')}
-            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-[#08080c] font-semibold text-xs px-3 py-2 rounded-lg transition-premium active:translate-y-[1px]"
-          >
-            <ChatCircle size={14} weight="bold" />
-            {t('reports.startConversation')}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate('/conversations')}
+              className="flex items-center gap-1.5 text-gray-300 hover:text-gray-100 border border-obsidian-700 hover:border-obsidian-600 text-xs px-3 py-2 rounded-lg transition-premium"
+            >
+              <ChatCircle size={14} />
+              {t('reports.startConversation')}
+            </button>
+            <button
+              onClick={() => { setNewTitle(''); setShowCreate(true); }}
+              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-[#08080c] font-semibold text-xs px-3.5 py-2 rounded-lg transition-premium active:translate-y-[1px] shadow-[0_4px_16px_-6px_rgba(245,158,11,0.5)]"
+            >
+              <Plus size={15} weight="bold" />
+              {t('reports.createReport')}
+            </button>
+          </div>
         }
       />
 
@@ -116,13 +144,22 @@ export default function ReportsPage() {
           title={t('reports.empty.title')}
           description={t('reports.empty.description')}
           action={
-            <button
-              onClick={() => navigate('/conversations')}
-              className="flex items-center gap-1.5 bg-obsidian-800 hover:bg-obsidian-700 border border-obsidian-700 text-gray-200 text-xs px-4 py-2 rounded-lg transition-premium active:translate-y-[1px]"
-            >
-              <ChatCircle size={14} />
-              {t('reports.startConversation')}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setNewTitle(''); setShowCreate(true); }}
+                className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-[#08080c] font-semibold text-xs px-4 py-2 rounded-lg transition-premium active:translate-y-[1px]"
+              >
+                <Plus size={15} weight="bold" />
+                {t('reports.createReport')}
+              </button>
+              <button
+                onClick={() => navigate('/conversations')}
+                className="flex items-center gap-1.5 bg-obsidian-800 hover:bg-obsidian-700 border border-obsidian-700 text-gray-200 text-xs px-4 py-2 rounded-lg transition-premium active:translate-y-[1px]"
+              >
+                <ChatCircle size={14} />
+                {t('reports.startConversation')}
+              </button>
+            </div>
           }
         />
       )}
@@ -228,6 +265,43 @@ export default function ReportsPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Create Report Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowCreate(false)}>
+          <div className="bg-obsidian-900 border border-obsidian-700 rounded-xl p-5 w-[400px] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-100 flex items-center gap-2">
+                <ChartBar size={16} className="text-amber-500" />
+                {t('reports.createTitle')}
+              </h3>
+              <button onClick={() => setShowCreate(false)} className="text-gray-500 hover:text-gray-300"><X size={16} /></button>
+            </div>
+            <p className="text-[11px] text-gray-500 mb-3">{t('reports.createHint')}</p>
+            <label className="block text-[11px] font-medium text-gray-400 mb-1">{t('reports.reportName')}</label>
+            <input
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setShowCreate(false); }}
+              placeholder={t('reports.reportNamePlaceholder')}
+              autoFocus
+              className="w-full bg-obsidian-800 border border-obsidian-700 rounded-md px-2.5 py-2 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:border-amber-500/50 transition-premium"
+            />
+            <div className="flex items-center justify-end gap-2 mt-5">
+              <button onClick={() => setShowCreate(false)} className="text-xs text-gray-400 hover:text-gray-200 px-3 py-1.5 rounded-md border border-obsidian-700 transition-premium">
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={!newTitle.trim() || creating}
+                className="text-xs text-[#08080c] bg-amber-500 hover:bg-amber-400 px-4 py-1.5 rounded-md font-semibold disabled:opacity-50 transition-premium"
+              >
+                {creating ? t('common.loading') : t('reports.createAndOpen')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
