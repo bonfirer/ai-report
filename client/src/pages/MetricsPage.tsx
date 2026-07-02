@@ -569,6 +569,11 @@ export default function MetricsPage() {
               {selectedMetric?.row_count != null && (
                 <span>{selectedMetric.row_count.toLocaleString()} rows</span>
               )}
+              {selectedMetric?.created_at && (
+                <span className="flex items-center gap-1" title={new Date(selectedMetric.created_at).toLocaleString()}>
+                  <Clock size={10} /> {t('metrics.favoritedAt')} {new Date(selectedMetric.created_at).toLocaleDateString()}
+                </span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">

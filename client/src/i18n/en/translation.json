@@ -344,6 +344,7 @@
     "test": "Test",
     "testOk": "Query succeeded, {{count}} rows returned",
     "needDatasource": "Configure a data source first",
+    "favoritedAt": "Saved",
     "groupNamePlaceholder": "Group name, e.g. Core KPIs",
     "ungrouped": "Ungrouped",
     "emptyGroup": "No metrics in this group yet",
