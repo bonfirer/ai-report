@@ -8,6 +8,7 @@
 
 <br/>
 
+[![GitHub stars](https://img.shields.io/github/stars/bonfirer/ai-report?style=social)](https://github.com/bonfirer/ai-report/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-stable-orange?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
@@ -18,6 +19,10 @@
 <br/>
 
 [🚀 Live Demo](#-live-demo) · [⚡ Quick Start](#-quick-start-with-docker-recommended) · [✨ Features](#-features) · [🧠 How It Learns](#-how-it-learns) · [🏗️ Architecture](#️-architecture) · [📦 Deploy](#-production-deployment)
+
+<br/>
+
+⭐ **If LingxiBI is useful to you, please [star it on GitHub](https://github.com/bonfirer/ai-report) — it really helps!**
 
 <br/>
 

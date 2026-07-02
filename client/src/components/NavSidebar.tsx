@@ -14,6 +14,7 @@ import {
   SignOut,
   Camera,
   Bell,
+  GithubLogo,
 } from '@phosphor-icons/react';
 import { useUIStore } from '../stores/uiStore';
 
@@ -82,6 +83,18 @@ export default function NavSidebar() {
       >
         <Gear size={18} weight={location.pathname.startsWith('/settings') ? 'fill' : 'regular'} />
       </NavLink>
+
+      {/* Star on GitHub */}
+      <a
+        href="https://github.com/bonfirer/ai-report"
+        target="_blank"
+        rel="noreferrer"
+        title={t('nav.starOnGithub')}
+        aria-label={t('nav.starOnGithub')}
+        className="w-9 h-9 rounded-md flex items-center justify-center text-gray-400 hover:text-amber-500 hover:bg-obsidian-800 transition-premium"
+      >
+        <GithubLogo size={18} />
+      </a>
 
       {/* Language Switcher */}
       <button

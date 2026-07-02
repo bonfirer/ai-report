@@ -8,6 +8,7 @@
 
 <br/>
 
+[![GitHub stars](https://img.shields.io/github/stars/bonfirer/ai-report?style=social)](https://github.com/bonfirer/ai-report/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-stable-orange?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
@@ -18,6 +19,10 @@
 <br/>
 
 [🚀 在线体验](#-在线体验) · [⚡ 快速开始](#-使用-docker-快速开始推荐) · [✨ 功能特性](#-功能特性) · [🧠 自学习机制](#-自学习机制) · [🏗️ 架构](#️-架构) · [📦 部署](#-生产环境部署)
+
+<br/>
+
+⭐ **如果 灵犀BI 对你有帮助，欢迎[在 GitHub 点个 Star](https://github.com/bonfirer/ai-report) —— 这对我们很重要！**
 
 <br/>
 
