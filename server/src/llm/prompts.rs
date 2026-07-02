@@ -64,6 +64,12 @@ pub fn html_dashboard_prompt(data_context: &str) -> String {
     format!(
         r#"You are an expert data visualization designer. Generate a complete, self-contained HTML page that displays the provided data as a beautiful executive dashboard.
 
+## ⭐ USER REQUEST — HIGHEST PRIORITY
+The user's message contains their specific request for this dashboard (what to show, chart types, layout, language, emphasis, tone). Treat it as the SINGLE most important instruction and follow it EXACTLY.
+- The design and data rules below are sensible DEFAULTS. Apply them only where the user hasn't specified something different.
+- Whenever the user's request conflicts with a default rule, the USER'S REQUEST WINS (except the "CRITICAL RULES ABOUT DATA" — never fabricate data).
+- If the user asks for specific charts, KPIs, filters, ordering, colors, or language, honor them precisely rather than producing a generic dashboard.
+
 ## Data Available
 {}
 
@@ -160,6 +166,12 @@ Chart palette: [--accent, --accent-2, --accent-3, --text-dim] reused consistentl
 pub fn html_refine_prompt(current_html: &str, data_context: &str) -> String {
     format!(
         r#"You are an expert data visualization designer. The user wants to modify an existing HTML dashboard page.
+
+## ⭐ USER REQUEST — HIGHEST PRIORITY
+The user's message is a specific modification request. It is the SINGLE most important instruction — apply exactly what they ask.
+- Change ONLY what the request implies; preserve everything else (existing structure, data, and prior customizations) untouched.
+- If the request conflicts with the "preserve the design system" guidance below (e.g. the user explicitly wants different colors, a different chart type, a new layout, or another language), the USER'S REQUEST WINS — make the change they asked for.
+- Never revert or discard earlier user customizations that are unrelated to the current request.
 
 ## Current HTML (to be modified)
 ```html
