@@ -143,6 +143,7 @@ async fn main() {
         .route("/api/reports/{id}/status", get(routes::reports::get_status))
         .route("/api/reports/{id}/summary", get(routes::reports::get_summary))
         .route("/api/reports/{id}/summary", post(routes::reports::generate_summary))
+        .route("/api/reports/{id}/ask", post(routes::reports::ask_report))
         .route("/api/reports/{id}", delete(routes::reports::delete))
         .route("/api/reports/{id}/move", put(routes::report_groups::move_report))
         .route("/api/reports/{id}/publish", put(routes::reports::publish))

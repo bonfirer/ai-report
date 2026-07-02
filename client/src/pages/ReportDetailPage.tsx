@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, Sparkle, PaperPlaneRight, ShareNetwork, Upload,
   Plus, Database, Star, X, Stop, Clock, ArrowClockwise, CaretDown, ArrowCounterClockwise,
-  Desktop, DeviceMobile, ClockCounterClockwise, Trash, Palette, Lightbulb,
+  Desktop, DeviceMobile, ClockCounterClockwise, Trash, Palette, Lightbulb, ChatCircle,
 } from '@phosphor-icons/react';
 import {
   reportsApi, metricsApi, metricGroupsApi, reportThemesApi, reportSummaryApi,
@@ -51,6 +51,11 @@ export default function ReportDetailPage() {
   const [summary, setSummary] = useState<DataSummary | null>(null);
   const [summaryUpdatedAt, setSummaryUpdatedAt] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  // AI Q&A over the report
+  const [qaMessages, setQaMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [qaInput, setQaInput] = useState('');
+  const [qaLoading, setQaLoading] = useState(false);
+  const qaEndRef = useRef<HTMLDivElement>(null);
   const [currentVersion, setCurrentVersion] = useState<number | null>(null);
   const [compareVersionId, setCompareVersionId] = useState<number | null>(null);
   const [deleteVersionTarget, setDeleteVersionTarget] = useState<{ id: number; version: number } | null>(null);
@@ -325,6 +330,26 @@ export default function ReportDetailPage() {
     }
   };
 
+  const handleAsk = async () => {
+    if (!report || !qaInput.trim() || qaLoading) return;
+    const question = qaInput.trim();
+    const history = qaMessages.slice(-8);
+    setQaMessages((prev) => [...prev, { role: 'user', content: question }]);
+    setQaInput('');
+    setQaLoading(true);
+    // Scroll to bottom after the user message renders.
+    setTimeout(() => qaEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+    try {
+      const res = await reportSummaryApi.ask(report.id, question, history, i18n.language);
+      setQaMessages((prev) => [...prev, { role: 'assistant', content: res.answer }]);
+    } catch (e) {
+      setQaMessages((prev) => [...prev, { role: 'assistant', content: `⚠️ ${e instanceof Error ? e.message : t('reportDetail.summary.failed')}` }]);
+    } finally {
+      setQaLoading(false);
+      setTimeout(() => qaEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+    }
+  };
+
   // Stop watching the generation (server task continues in background)
   const handleAIStop = () => {
     stopPolling();
@@ -497,15 +522,17 @@ export default function ReportDetailPage() {
       {/* ── HTML Preview (iframe) ── */}
       <div className="flex-1 overflow-hidden bg-obsidian-950 relative flex flex-row">
 
-        {/* AI Summary Drawer (right side) */}
+        {/* AI Summary + Q&A Drawer (right side) */}
         {showSummary && (
-          <div className="w-80 bg-obsidian-900 border-l border-obsidian-700 flex flex-col flex-shrink-0 order-2">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-obsidian-700">
+          <div className="w-96 bg-obsidian-900 border-l border-obsidian-700 flex flex-col flex-shrink-0 order-2">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-obsidian-700 flex-shrink-0">
               <span className="text-[11px] text-gray-300 font-medium flex items-center gap-1.5">
                 <Lightbulb size={13} className="text-amber-500" /> {t('reportDetail.summary.title')}
               </span>
               <button onClick={() => setShowSummary(false)} aria-label={t('common.close')} className="text-gray-500 hover:text-gray-300"><X size={12} /></button>
             </div>
+
+            {/* Scrollable: summary block + Q&A conversation */}
             <div className="flex-1 overflow-y-auto scrollbar-thin p-3">
               {summaryLoading ? (
                 <div className="flex flex-col items-center justify-center py-10 gap-3">
@@ -549,6 +576,61 @@ export default function ReportDetailPage() {
                   </button>
                 </div>
               )}
+
+              {/* Q&A conversation */}
+              <div className="mt-4 pt-3 border-t border-obsidian-700/60">
+                <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1">
+                  <ChatCircle size={11} className="text-amber-500" /> {t('reportDetail.summary.qaTitle')}
+                </span>
+                {qaMessages.length === 0 && !qaLoading && (
+                  <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">{t('reportDetail.summary.qaHint')}</p>
+                )}
+                <div className="mt-2 space-y-2">
+                  {qaMessages.map((m, idx) => (
+                    <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-[11px] leading-relaxed whitespace-pre-wrap ${
+                        m.role === 'user'
+                          ? 'bg-amber-500/15 text-amber-100 border border-amber-500/20'
+                          : 'bg-obsidian-800 text-gray-300 border border-obsidian-700'
+                      }`}>
+                        {m.content}
+                      </div>
+                    </div>
+                  ))}
+                  {qaLoading && (
+                    <div className="flex justify-start">
+                      <div className="bg-obsidian-800 border border-obsidian-700 rounded-lg px-2.5 py-1.5 flex items-center gap-1">
+                        <span className="w-1 h-1 bg-amber-500 rounded-full animate-pulse" />
+                        <span className="w-1 h-1 bg-amber-500 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1 h-1 bg-amber-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+                      </div>
+                    </div>
+                  )}
+                  <div ref={qaEndRef} />
+                </div>
+              </div>
+            </div>
+
+            {/* Q&A input (fixed at bottom) */}
+            <div className="border-t border-obsidian-700 p-2 flex-shrink-0">
+              <div className="relative">
+                <input
+                  value={qaInput}
+                  onChange={(e) => setQaInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAsk(); } }}
+                  placeholder={t('reportDetail.summary.qaPlaceholder')}
+                  disabled={qaLoading || datasources.length === 0}
+                  className="w-full bg-obsidian-800 border border-obsidian-700 rounded-lg pl-3 pr-9 py-2 text-[11px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-amber-500/50 transition-premium disabled:opacity-50"
+                />
+                <button
+                  onClick={handleAsk}
+                  disabled={qaLoading || !qaInput.trim()}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-amber-500 disabled:text-gray-700 transition-premium"
+                  aria-label={t('reportDetail.summary.qaSend')}
+                >
+                  <PaperPlaneRight size={13} weight="fill" />
+                </button>
+              </div>
             </div>
           </div>
         )}

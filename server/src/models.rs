@@ -271,6 +271,22 @@ pub struct GenerateSummaryRequest {
     pub lang: Option<String>,
 }
 
+/// A single turn in the report Q&A conversation.
+#[derive(Debug, Deserialize)]
+pub struct ReportQaMessage {
+    pub role: String,
+    pub content: String,
+}
+
+/// Ask a grounded question about a report's data.
+#[derive(Debug, Deserialize)]
+pub struct ReportQaRequest {
+    pub question: String,
+    #[serde(default)]
+    pub history: Vec<ReportQaMessage>,
+    pub lang: Option<String>,
+}
+
 // ── Report Groups ──
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]

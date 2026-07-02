@@ -222,7 +222,11 @@
       "highlights": "关键发现",
       "trends": "趋势",
       "anomalies": "异常与风险",
-      "recommendations": "行动建议"
+      "recommendations": "行动建议",
+      "qaTitle": "追问分析",
+      "qaHint": "基于当前报表的数据、指标及其关联性提问，例如「哪个指标下滑最明显？」「A 和 B 有没有相关性？」",
+      "qaPlaceholder": "就本报表数据提问…",
+      "qaSend": "发送"
     },
     "noVersions": "暂无历史版本",
     "restoreVersion": "恢复此版本",

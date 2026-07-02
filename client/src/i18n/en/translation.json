@@ -222,7 +222,11 @@
       "highlights": "Key findings",
       "trends": "Trends",
       "anomalies": "Anomalies & risks",
-      "recommendations": "Recommendations"
+      "recommendations": "Recommendations",
+      "qaTitle": "Ask a follow-up",
+      "qaHint": "Ask about this report's data, metrics, and how they relate — e.g. \"Which metric dropped the most?\" or \"Is A correlated with B?\"",
+      "qaPlaceholder": "Ask about this report's data…",
+      "qaSend": "Send"
     },
     "noVersions": "No version history yet",
     "restoreVersion": "Restore this version",

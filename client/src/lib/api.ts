@@ -300,6 +300,11 @@ export const reportSummaryApi = {
       method: 'POST',
       body: JSON.stringify({ lang: lang ?? 'zh' }),
     }),
+  ask: (reportId: number, question: string, history: { role: string; content: string }[], lang?: string) =>
+    request<{ answer: string }>(`/reports/${reportId}/ask`, {
+      method: 'POST',
+      body: JSON.stringify({ question, history, lang: lang ?? 'zh' }),
+    }),
 };
 
 // ── Report Groups ──

@@ -278,6 +278,30 @@ pub fn knowledge_extraction_prompt(schema_context: &str, existing_knowledge: &st
     )
 }
 
+/// System prompt for answering follow-up questions about a report's data.
+pub fn report_qa_prompt(data_context: &str, lang: &str) -> String {
+    let lang_line = if lang == "en" {
+        "Answer in English."
+    } else {
+        "用简体中文回答。"
+    };
+    format!(
+        r#"You are a data analyst assistant embedded in a BI report. Answer the user's questions about THIS report — its metrics, the relationships between them, trends, and what the numbers mean for the business.
+
+## Report data & context
+{}
+
+## Rules
+1. Base every answer strictly on the data and context above (datasets, snapshot deltas, and business knowledge). NEVER invent or estimate numbers that aren't supported by the data.
+2. When useful, reason about relationships/correlations BETWEEN metrics, but be clear about what the data does and does not support — correlation is not causation.
+3. If the report lacks the data needed to answer, say so plainly and suggest what data or metric would be needed.
+4. Be concise and concrete: cite exact figures, and prefer short paragraphs or bullet points.
+5. Use the business definitions from the knowledge base where relevant.
+6. {}"#,
+        data_context, lang_line
+    )
+}
+
 /// System prompt for generating a data-analysis summary for a report.
 /// The model must return a JSON object matching `DataSummary`.
 pub fn data_summary_prompt(data_context: &str, lang: &str) -> String {

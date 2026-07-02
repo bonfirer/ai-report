@@ -1170,3 +1170,84 @@ pub async fn generate_summary(
         }
     }
 }
+
+/// POST — answer a grounded question about a report's data (Q&A over the report).
+pub async fn ask_report(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+    Json(body): Json<ReportQaRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let question = body.question.trim();
+    if question.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "Question is empty".to_string()));
+    }
+
+    let report = sqlx::query_as::<_, Report>("SELECT * FROM reports WHERE id = ?")
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(crate::routes::internal_error)?
+        .ok_or((StatusCode::NOT_FOUND, "Report not found".to_string()))?;
+
+    let llm_cfg = sqlx::query_as::<_, LLMConfig>("SELECT * FROM llm_config WHERE id = 1")
+        .fetch_optional(&state.db)
+        .await
+        .map_err(crate::routes::internal_error)?
+        .ok_or((StatusCode::BAD_REQUEST, "LLM not configured".to_string()))?;
+    if llm_cfg.api_key.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "LLM API key not configured".to_string()));
+    }
+
+    let lang = body.lang.clone().unwrap_or_else(|| "zh".to_string());
+    let data_context = build_summary_context(&state, &report).await?;
+    let system = prompts::report_qa_prompt(&data_context, &lang);
+
+    let client = LlmClient::new(llm_cfg.base_url, llm_cfg.api_key, llm_cfg.model);
+    use crate::llm::ChatMessage;
+
+    // Carry the recent conversation (capped) so follow-ups have context.
+    let mut messages: Vec<ChatMessage> = Vec::new();
+    let history_start = body.history.len().saturating_sub(8);
+    for m in &body.history[history_start..] {
+        let role = if m.role == "assistant" { "assistant" } else { "user" };
+        messages.push(ChatMessage {
+            role: role.to_string(),
+            content: m.content.clone(),
+            reasoning_content: None,
+        });
+    }
+    messages.push(ChatMessage {
+        role: "user".into(),
+        content: question.to_string(),
+        reasoning_content: None,
+    });
+
+    let start = std::time::Instant::now();
+    let result = client
+        .chat_oneshot(&messages, &system, llm_cfg.max_tokens.max(2048), llm_cfg.temperature)
+        .await;
+    let duration_ms = start.elapsed().as_millis() as u64;
+
+    match result {
+        Ok(answer) => {
+            crate::ai_log::log_ai_request(
+                &state.db, "report_qa", &client.model,
+                duration_ms, "success", None,
+                Some(&format!("report_id={}, q={}", id, question)),
+                Some(&system),
+                Some(&answer),
+            ).await;
+            Ok(Json(serde_json::json!({ "answer": answer })))
+        }
+        Err(e) => {
+            crate::ai_log::log_ai_request(
+                &state.db, "report_qa", &client.model,
+                duration_ms, "failed", Some(&e),
+                Some(&format!("report_id={}, q={}", id, question)),
+                Some(&system),
+                None,
+            ).await;
+            Err((StatusCode::BAD_GATEWAY, format!("AI Q&A failed: {}", e)))
+        }
+    }
+}
